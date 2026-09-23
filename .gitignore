@@ -1,0 +1,26 @@
+# Build output
+/dist/
+/bin/
+/weightkeep
+*.exe
+*.test
+*.out
+coverage.*
+
+# Local state from running the tool in the repo
+/.weightkeep/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Personal notes and research (kept local, never published)
+/.notes/
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Python venv used by the client compatibility tests
+/test/compat/.venv/
+__pycache__/
