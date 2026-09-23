@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -116,5 +118,61 @@ func TestPull(t *testing.T) {
 	code = execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, []string{"pull", "../etc"})
 	if code == 0 {
 		t.Error("invalid repo id accepted")
+	}
+}
+
+func TestLsVerifyRepair(t *testing.T) {
+	weights := fakehub.File{Path: "model.safetensors", Content: bytes.Repeat([]byte("w"), 5000), LFS: true}
+	h := fakehub.New(&fakehub.Repo{ID: "acme/tiny", Files: []fakehub.File{{Path: "config.json", Content: []byte("{}")}, weights}})
+	defer h.Close()
+	home := t.TempDir()
+	d := deps{loadConfig: func() (*config.Config, error) { return &config.Config{Home: home, Upstream: h.URL}, nil }}
+	run := func(args ...string) (string, string, int) {
+		var out, errOut bytes.Buffer
+		code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, args)
+		return out.String(), errOut.String(), code
+	}
+
+	if _, errOut, _ := run("ls"); !strings.Contains(errOut, "nothing kept yet") {
+		t.Errorf("empty ls: %q", errOut)
+	}
+	if _, errOut, code := run("pull", "acme/tiny"); code != 0 {
+		t.Fatal(errOut)
+	}
+	out, _, _ := run("ls")
+	if !strings.Contains(out, "acme/tiny") || !strings.Contains(out, "2/2") {
+		t.Errorf("ls: %s", out)
+	}
+	out, _, _ = run("ls", "--json")
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil || len(rows) != 1 || rows[0]["kept_files"] != float64(2) {
+		t.Errorf("ls --json: %s (%v)", out, err)
+	}
+
+	if out, errOut, code := run("verify", "acme/tiny@main"); code != 0 || !strings.Contains(out, "ok ") {
+		t.Fatalf("verify: %d %s %s", code, out, errOut)
+	}
+
+	// Corrupt the weights blob.
+	blob := filepath.Join(home, "blobs", "sha256", weights.SHA256()[:2], weights.SHA256())
+	if err := os.Chmod(blob, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blob, bytes.Repeat([]byte("x"), 5000), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, _, code := run("verify")
+	if code == 0 || !strings.Contains(out, "CORRUPT") || !strings.Contains(out, "model.safetensors") {
+		t.Fatalf("verify after corruption: exit %d\n%s", code, out)
+	}
+	// Quarantined, so the next pull fetches a clean copy and verify passes.
+	if _, errOut, code := run("pull", "acme/tiny"); code != 0 || !strings.Contains(errOut, "1 downloaded") {
+		t.Fatalf("re-pull: %d %s", code, errOut)
+	}
+	if out, _, code := run("verify"); code != 0 {
+		t.Fatalf("verify after repair: %d %s", code, out)
+	}
+	if _, _, code := run("verify", "acme/other"); code == 0 {
+		t.Error("verify of an unknown repo should fail")
 	}
 }
