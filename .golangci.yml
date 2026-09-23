@@ -30,6 +30,10 @@ linters:
         - G301
         - G302
         - G304
+        - G306
+    misspell:
+      ignore-rules:
+        - hardlinked
     nolintlint:
       require-explanation: true
       require-specific: true

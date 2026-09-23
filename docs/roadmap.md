@@ -68,11 +68,13 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   one revision and reports mismatches with a non-zero exit.
   Accept: flipping a byte in a blob (after chmod) makes `verify` fail and name the file.
   Done: corrupt blobs are moved to `quarantine/` so the next pull fetches a clean copy.
-- [ ] **M1.8 `export`.** after M1.6
+- [x] **M1.8 `export`.** after M1.6
   Materialise a revision into the HF cache layout (`models--org--name/{blobs,snapshots,refs}`) at
   `$HF_HUB_CACHE` or `--cache-dir`, trying reflink, hardlink, symlink, copy in that order;
   `--to DIR` writes a plain directory instead.
   Accept: after export, `HF_HUB_OFFLINE=1` transformers loads `prajjwal1/bert-tiny` (compat test).
+  Done: verified with huggingface_hub, transformers (config, tokenizer) and safetensors against a
+  fresh cache; the offline check becomes part of the M2.7 compat suite.
 - [ ] **M1.9 `gc`.** after M1.6
   Remove blobs no manifest references, stale `tmp/*.lock` files, and partials older than a week;
   `--dry-run`.

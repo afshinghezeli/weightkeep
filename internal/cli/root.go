@@ -63,6 +63,7 @@ the hf CLI keep working, whether or not the Hub still has the files.`,
 		newPullCommand(d),
 		newLsCommand(d),
 		newVerifyCommand(d),
+		newExportCommand(d),
 		newEnvCommand(d),
 		newVersionCommand(),
 	)
