@@ -75,10 +75,12 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: after export, `HF_HUB_OFFLINE=1` transformers loads `prajjwal1/bert-tiny` (compat test).
   Done: verified with huggingface_hub, transformers (config, tokenizer) and safetensors against a
   fresh cache; the offline check becomes part of the M2.7 compat suite.
-- [ ] **M1.9 `gc`.** after M1.6
+- [x] **M1.9 `gc`.** after M1.6
   Remove blobs no manifest references, stale `tmp/*.lock` files, and partials older than a week;
   `--dry-run`.
   Accept: test with two revisions sharing blobs; removing one revision's manifest keeps shared blobs.
+  Done: also `weightkeep rm REPO@REV` to forget a revision. Unreferenced blobs younger than `--grace`
+  (default 1h) survive, so a concurrent pull can't lose blobs it stored before saving its manifest.
 
 ## M2 Serve (0.1.0)
 

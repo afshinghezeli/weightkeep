@@ -56,7 +56,8 @@ through the same HTTP API the Hub speaks.
 | `weightkeep export org/model@rev` | Materialise a revision into the standard HF cache layout (or a plain directory). |
 | `weightkeep seed` | Share kept blobs over BitTorrent, within disk and bandwidth budgets, for licences that allow it. |
 | `weightkeep registry sync` | Fetch the signed community registry (TUF). |
-| `weightkeep gc` | Drop unreferenced blobs. |
+| `weightkeep rm REPO@REV` | Forget a revision (its blobs go at the next `gc`). |
+| `weightkeep gc` | Drop unreferenced blobs, stale locks and abandoned partials. |
 | `weightkeep env` | Print resolved paths, upstream and token source (never the token). |
 
 ## Architecture
