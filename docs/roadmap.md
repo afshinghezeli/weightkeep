@@ -51,7 +51,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   canonical JSON (sorted, no insignificant whitespace), stored under `manifests/` and indexed in SQLite
   (`revisions`, `files`, `refs`).
   Accept: round-trip test; canonical form is byte-stable across runs.
-- [ ] **M1.5 Fetcher.** after M1.2, M1.3
+- [x] **M1.5 Fetcher.** after M1.2, M1.3
   Download one file into the store: resume from `tmp/` with Range, verify against the expected SHA-256
   (LFS) or git SHA-1 (regular file), retry with backoff on 5xx/timeouts, never on 4xx. Parallel across
   files with a limit. Progress events on a channel.

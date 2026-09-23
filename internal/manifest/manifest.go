@@ -62,9 +62,13 @@ type License struct {
 
 // File is one file of the revision.
 type File struct {
-	Path    string `json:"path"`
-	Size    int64  `json:"size"`
-	SHA256  string `json:"sha256"`
+	Path   string `json:"path"`
+	Size   int64  `json:"size"`
+	SHA256 string `json:"sha256"`
+	// GitSHA1 is the blob id in the repo's git tree, as the Hub's tree
+	// listing reports it: the content's id for regular files, the LFS
+	// pointer's id for LFS files. Keeping the tree's value lets an offline
+	// tree listing match the Hub's exactly.
 	GitSHA1 string `json:"git_sha1"`
 	// LFS is true for files the Hub stores in LFS/Xet. It decides which
 	// hash the Hub (and so our proxy) uses as the ETag.
@@ -72,7 +76,7 @@ type File struct {
 }
 
 // ETag is the id the Hub serves for this file: SHA-256 for LFS files, the
-// git blob SHA-1 otherwise.
+// git blob SHA-1 of the content otherwise.
 func (f File) ETag() string {
 	if f.LFS {
 		return f.SHA256
