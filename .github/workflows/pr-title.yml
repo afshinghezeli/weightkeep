@@ -1,0 +1,52 @@
+name: pr-title
+
+# PRs are squash-merged and the title becomes the commit on main, so the
+# title is what has to follow Conventional Commits. See docs/contributing/commits.md.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            test
+            docs
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            cli
+            config
+            hub
+            store
+            manifest
+            fetch
+            hfcache
+            proxy
+            policy
+            torrent
+            registry
+            seed
+            deps
+            release
+            main
+          requireScope: false
+          subjectPattern: ^[a-z0-9].*[^.]$
+          subjectPatternError: |
+            The summary "{subject}" should start with a lower-case letter or digit
+            and not end with a period. Example: "fix(proxy): send X-Repo-Commit on 404"
