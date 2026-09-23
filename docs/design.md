@@ -95,9 +95,16 @@ through the same HTTP API the Hub speaks.
 | `internal/torrent` | Hybrid v1/v2 torrent builder and the anacrolix client wrapper. (M3) |
 | `internal/registry` | TUF client for the community registry. (M4) |
 
-Dependency direction is strictly downward in that table: `cli` may import anything, `store` imports
-nothing from this repo except small helpers. `proxy` never calls the Hub directly; it goes through
-`fetch` and `hub`.
+Packages are layered. A package may import only from layers below it:
+
+1. `ids`, `config`, `store`, `manifest`, `policy`: no network, no knowledge of the Hub's API.
+2. `hub`: talks to the upstream Hub.
+3. `fetch`, `hfcache`, `torrent`, `registry`: combine the store with a source.
+4. `proxy`: serves the store over HTTP, fetching through layer 3.
+5. `cli` and `cmd/weightkeep`: wiring.
+
+`manifest` therefore keeps repo ids as plain strings rather than importing `hub.Repo`, and `proxy`
+never calls the Hub without going through `fetch`.
 
 ### Store
 
@@ -116,6 +123,21 @@ $WEIGHTKEEP_HOME/                       default: $XDG_DATA_HOME/weightkeep or ~/
   `blobs/` is ever partially written.
 - Revisions are always stored by full commit SHA. Branch names are a `refs` table entry with a fetch time.
 - Details and the reasoning: [ADR 0003](adr/0003-content-addressed-store.md).
+
+### Manifests
+
+A manifest records one kept revision. It is canonical JSON (files sorted by path, UTC time with second
+precision, no whitespace) so equal manifests are equal bytes, and it is what later gets signed:
+
+```json
+{"version":1,"repo":{"type":"model","id":"HuggingFaceTB/SmolLM2-135M"},"commit":"<40 hex>",
+ "fetched_at":"2026-09-24T08:30:15Z","upstream":"https://huggingface.co",
+ "license":{"ids":["apache-2.0"]},
+ "files":[{"path":"config.json","size":704,"sha256":"<64 hex>","git_sha1":"<40 hex>","lfs":false}, ...]}
+```
+
+The file under `manifests/` is the record; the `revisions`, `files` and `refs` tables index it.
+Readers reject unknown fields and newer versions, so a format change means a version bump.
 
 ### Proxy
 
