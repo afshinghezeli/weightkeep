@@ -14,14 +14,14 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   `go.mod`, `cmd/weightkeep`, `internal/cli` with a `version` command, `internal/version` filled by
   ldflags, `Makefile` (build, test, lint, check), `.golangci.yml`.
   Accept: `make check` passes; `./bin/weightkeep version` prints version, commit and Go version.
-- [ ] **M0.4 CI and repo templates.** after M0.3
+- [x] **M0.4 CI and repo templates.** after M0.3
   `ci.yml` (lint; test on ubuntu, macos, windows; `go mod tidy` diff check), PR title lint,
   Dependabot for gomod and actions, issue forms, PR template. Actions pinned by SHA,
   `permissions: contents: read` by default.
   Accept: CI green on `main`.
-- [ ] **M0.5 Release plumbing.** after M0.4
-  release-please config and workflow, `.goreleaser.yaml` (archives, checksums, SBOM, attestations,
-  Homebrew tap, Scoop, nfpm).
+- [x] **M0.5 Release plumbing.** after M0.4
+  release-please config and workflow, `.goreleaser.yaml` (archives, checksums, deb/rpm/apk packages,
+  build provenance attestations). Homebrew and Scoop need their own repos and move to M5.2.
   Accept: `goreleaser check` passes; `goreleaser release --snapshot --clean` builds all targets locally.
 
 ## M1 Keep
@@ -153,5 +153,6 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 ## M5 Launch
 
 - [ ] **M5.1 Demo.** vhs tape committed, GIF rendered in CI.
-- [ ] **M5.2 Install paths.** `install.sh`, Homebrew tap, Scoop bucket tested on clean machines.
+- [ ] **M5.2 Install paths.** `install.sh`; Homebrew tap and Scoop bucket repos wired into GoReleaser;
+  all tested on clean machines.
 - [ ] **M5.3 Docs pass.** Usage docs for each client (transformers, vLLM, llama.cpp, Ollama, LM Studio).

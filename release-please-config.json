@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "go",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "pull-request-title-pattern": "chore(release): ${version}",
+  "changelog-sections": [
+    { "type": "feat", "section": "Added" },
+    { "type": "fix", "section": "Fixed" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "revert", "section": "Reverted" },
+    { "type": "docs", "section": "Documentation", "hidden": true },
+    { "type": "refactor", "section": "Internal", "hidden": true },
+    { "type": "test", "section": "Internal", "hidden": true },
+    { "type": "build", "section": "Internal", "hidden": true },
+    { "type": "ci", "section": "Internal", "hidden": true },
+    { "type": "chore", "section": "Internal", "hidden": true }
+  ],
+  "packages": {
+    ".": {
+      "package-name": "weightkeep",
+      "release-as": "0.1.0"
+    }
+  }
+}
