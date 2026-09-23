@@ -43,6 +43,10 @@ type PullRequest struct {
 	// they include the config, tokenizer and licence.
 	Include []string
 	Exclude []string
+	// NoLFS downloads only the small files and records the manifest. The
+	// proxy uses it to learn a revision before fetching large files on
+	// demand.
+	NoLFS bool
 }
 
 // PullResult reports what happened.
@@ -129,7 +133,7 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 
 	var targets []fetch.Target
 	for _, f := range m.Files {
-		if f.LFS && !selected(f.Path, include, exclude) {
+		if f.LFS && (req.NoLFS || !selected(f.Path, include, exclude)) {
 			res.Skipped = append(res.Skipped, f.Path)
 			continue
 		}

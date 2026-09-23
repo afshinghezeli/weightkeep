@@ -302,3 +302,9 @@ func (c ctxReader) Read(p []byte) (int, error) {
 	}
 	return c.r.Read(p)
 }
+
+// PartialPath is where the partial for key lives while it downloads. Readers
+// that stream a download in progress read it; only Partial writes it.
+func (s *Store) PartialPath(key string) string {
+	return filepath.Join(s.root, "tmp", key+".part")
+}
