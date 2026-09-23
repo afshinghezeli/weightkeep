@@ -260,3 +260,10 @@ func RefsFor(ctx context.Context, st *store.Store, repo Repo, commit string) ([]
 	}
 	return out, rows.Err()
 }
+
+// DeleteRefs removes every ref of repo that points at commit.
+func DeleteRefs(ctx context.Context, st *store.Store, repo Repo, commit string) error {
+	_, err := st.DB().ExecContext(ctx,
+		`DELETE FROM refs WHERE repo_type = ? AND repo_id = ? AND commit_sha = ?`, repo.Type, repo.ID, commit)
+	return err
+}
