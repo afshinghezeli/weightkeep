@@ -3,8 +3,9 @@ package hub
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
+
+	"github.com/afshinghezeli/weightkeep/internal/ids"
 )
 
 // RepoType is the kind of Hub repository.
@@ -80,10 +81,6 @@ func (r Repo) escapedID() string {
 	return strings.Join(parts, "/")
 }
 
-// The Hub allows letters, digits, "-", "_" and "." in names, up to 96
-// characters, and doesn't allow names made only of dots.
-var segmentRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$`)
-
 // ParseRepo parses "org/name" (or a legacy "name") as a model repo.
 // "datasets/org/name" and "spaces/org/name" set the type.
 func ParseRepo(s string) (Repo, error) {
@@ -99,39 +96,14 @@ func ParseRepo(s string) (Repo, error) {
 	return r, nil
 }
 
-// ValidateRepoID checks an id without a type prefix. It rejects anything
-// that could escape a path when the id is used to build file names.
-func ValidateRepoID(id string) error {
-	parts := strings.Split(id, "/")
-	if len(parts) > 2 {
-		return fmt.Errorf("repo id %q: expected namespace/name", id)
-	}
-	for _, p := range parts {
-		if !segmentRE.MatchString(p) || strings.Contains(p, "..") {
-			return fmt.Errorf("repo id %q: %q is not a valid name", id, p)
-		}
-	}
-	return nil
-}
-
-var commitRE = regexp.MustCompile(`^[0-9a-f]{40}$`)
+// ValidateRepoID checks an id without a type prefix.
+func ValidateRepoID(id string) error { return ids.ValidateRepoID(id) }
 
 // IsCommit reports whether rev is a full 40-hex commit id.
-func IsCommit(rev string) bool { return commitRE.MatchString(rev) }
+func IsCommit(rev string) bool { return ids.IsCommit(rev) }
 
-// ValidatePath rejects repo file paths that are absolute, empty, or climb
-// out of the repo with "..". Paths use "/" on every OS.
-func ValidatePath(p string) error {
-	if p == "" || strings.HasPrefix(p, "/") || strings.Contains(p, "\\") || strings.ContainsRune(p, 0) {
-		return fmt.Errorf("invalid repo path %q", p)
-	}
-	for _, seg := range strings.Split(p, "/") {
-		if seg == "" || seg == "." || seg == ".." {
-			return fmt.Errorf("invalid repo path %q", p)
-		}
-	}
-	return nil
-}
+// ValidatePath rejects repo file paths that could escape a directory.
+func ValidatePath(p string) error { return ids.ValidatePath(p) }
 
 func escapePath(p string) string {
 	parts := strings.Split(p, "/")
