@@ -41,7 +41,7 @@ gitignored).
 
 ## Go rules
 
-- Go 1.25+ (go.mod), developed on 1.27. `CGO_ENABLED=0` must always build.
+- Go 1.26+ (go.mod): the oldest release the Go team still supports. CI tests `oldstable` and `stable`. `CGO_ENABLED=0` must always build.
 - stdlib `net/http` for the proxy and Hub client; no web framework.
 - SQLite via `modernc.org/sqlite` only (pure Go). BitTorrent via `github.com/anacrolix/torrent` only
   inside `internal/torrent`.

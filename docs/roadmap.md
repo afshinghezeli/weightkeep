@@ -57,10 +57,12 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   files with a limit. Progress events on a channel.
   Accept: tests for resume after a dropped connection, hash mismatch (blob rejected), 404, and 503
   retried then succeeding.
-- [ ] **M1.6 `pull`.** after M1.4, M1.5
+- [x] **M1.6 `pull`.** after M1.4, M1.5
   `weightkeep pull org/model[@rev] [--include GLOB]... [--exclude GLOB]...`. Records the manifest and the
   ref. Progress on stderr. Re-running is a no-op that exits 0.
   Accept: pulling `prajjwal1/bert-tiny` twice; the second run makes only the revision request.
+  Done: filters only choose LFS files; small files are always kept and the manifest lists the whole
+  tree. A pinned commit that is already kept pulls with no network. Orchestration is in `internal/keep`.
 - [ ] **M1.7 `ls` and `verify`.** after M1.6
   `ls` shows repo, commit (short), size, file count, last verified; `--json`. `verify` re-hashes all or
   one revision and reports mismatches with a non-zero exit.
@@ -71,7 +73,8 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   `--to DIR` writes a plain directory instead.
   Accept: after export, `HF_HUB_OFFLINE=1` transformers loads `prajjwal1/bert-tiny` (compat test).
 - [ ] **M1.9 `gc`.** after M1.6
-  Remove blobs no manifest references; `--dry-run`.
+  Remove blobs no manifest references, stale `tmp/*.lock` files, and partials older than a week;
+  `--dry-run`.
   Accept: test with two revisions sharing blobs; removing one revision's manifest keeps shared blobs.
 
 ## M2 Serve (0.1.0)

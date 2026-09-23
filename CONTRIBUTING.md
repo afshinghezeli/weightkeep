@@ -12,7 +12,7 @@ from running it against real models and real clients, and small focused PRs.
 
 ## Building
 
-You need Go 1.25 or newer and `make`.
+You need Go 1.26 or newer and `make`.
 
 ```sh
 make build      # ./bin/weightkeep
