@@ -33,7 +33,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   `$HF_HOME/token`, `~/.cache/huggingface/token`).
   Accept: table tests for every precedence rule; tokens never appear in `String()` or logs.
   Done: also added `weightkeep env` (like `go env`) to show the resolved settings in bug reports.
-- [ ] **M1.2 Blob store.** after M1.1
+- [x] **M1.2 Blob store.** after M1.1
   `Put(io.Reader) (Blob, error)` streams to `tmp/`, computes SHA-256 and git blob SHA-1 in one pass,
   fsyncs, renames to `blobs/sha256/ab/<hex>`, sets 0444. `Open`, `Has`, `Verify`. SQLite (modernc, WAL)
   with a `blobs` table and a migration runner.
