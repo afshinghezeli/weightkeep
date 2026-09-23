@@ -10,7 +10,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 - [x] **M0.1 Project conventions.** Licence, code of conduct, contributing guide, security policy,
   commit and versioning rules, writing style, design doc, ADRs 0001-0008.
 - [x] **M0.2 Claude Code setup.** `CLAUDE.md`, project skills, prose and gofmt hooks.
-- [ ] **M0.3 Go skeleton.** after M0.1
+- [x] **M0.3 Go skeleton.** after M0.1
   `go.mod`, `cmd/weightkeep`, `internal/cli` with a `version` command, `internal/version` filled by
   ldflags, `Makefile` (build, test, lint, check), `.golangci.yml`.
   Accept: `make check` passes; `./bin/weightkeep version` prints version, commit and Go version.
