@@ -176,3 +176,33 @@ func TestLsVerifyRepair(t *testing.T) {
 		t.Error("verify of an unknown repo should fail")
 	}
 }
+
+func TestRmAndGC(t *testing.T) {
+	h := fakehub.New(&fakehub.Repo{ID: "acme/tiny", Files: []fakehub.File{
+		{Path: "config.json", Content: []byte("{}")},
+		{Path: "model.safetensors", Content: bytes.Repeat([]byte("w"), 5000), LFS: true},
+	}})
+	defer h.Close()
+	home := t.TempDir()
+	d := deps{loadConfig: func() (*config.Config, error) { return &config.Config{Home: home, Upstream: h.URL}, nil }}
+	run := func(args ...string) (string, int) {
+		var out, errOut bytes.Buffer
+		code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, args)
+		return out.String() + errOut.String(), code
+	}
+	if out, code := run("pull", "acme/tiny"); code != 0 {
+		t.Fatal(out)
+	}
+	if out, code := run("rm", "acme/tiny"); code == 0 || !strings.Contains(out, "acme/tiny@main") {
+		t.Errorf("rm without a revision: %d %s", code, out)
+	}
+	if out, code := run("rm", "acme/tiny@main"); code != 0 || !strings.Contains(out, "forgot acme/tiny@") {
+		t.Fatalf("rm: %d %s", code, out)
+	}
+	if out, code := run("gc", "--grace", "0s"); code != 0 || !strings.Contains(out, "removed 2 blob(s)") {
+		t.Errorf("gc: %d %s", code, out)
+	}
+	if out, _ := run("ls"); !strings.Contains(out, "nothing kept yet") {
+		t.Errorf("ls after rm: %s", out)
+	}
+}
