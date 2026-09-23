@@ -135,7 +135,8 @@ func TestSaveLoadList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(list) != 1 || list[0].Files != 2 || list[0].Size != 110 || list[0].Commit != m.Commit {
+	// Nothing is in the blob store in this test, so nothing counts as kept.
+	if len(list) != 1 || list[0].Files != 2 || list[0].Size != 110 || list[0].KeptFiles != 0 || list[0].Commit != m.Commit {
 		t.Errorf("List = %+v", list)
 	}
 

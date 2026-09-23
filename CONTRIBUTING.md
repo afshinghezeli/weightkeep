@@ -19,6 +19,7 @@ make build      # ./bin/weightkeep
 make test       # unit tests
 make lint       # golangci-lint
 make check      # everything CI runs, except the client compatibility tests
+make hooks      # once: a pre-commit hook that refuses unformatted Go files
 ```
 
 The client compatibility tests run real `huggingface_hub` against `weightkeep serve`. They need

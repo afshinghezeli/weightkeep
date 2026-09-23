@@ -63,10 +63,11 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: pulling `prajjwal1/bert-tiny` twice; the second run makes only the revision request.
   Done: filters only choose LFS files; small files are always kept and the manifest lists the whole
   tree. A pinned commit that is already kept pulls with no network. Orchestration is in `internal/keep`.
-- [ ] **M1.7 `ls` and `verify`.** after M1.6
+- [x] **M1.7 `ls` and `verify`.** after M1.6
   `ls` shows repo, commit (short), size, file count, last verified; `--json`. `verify` re-hashes all or
   one revision and reports mismatches with a non-zero exit.
   Accept: flipping a byte in a blob (after chmod) makes `verify` fail and name the file.
+  Done: corrupt blobs are moved to `quarantine/` so the next pull fetches a clean copy.
 - [ ] **M1.8 `export`.** after M1.6
   Materialise a revision into the HF cache layout (`models--org--name/{blobs,snapshots,refs}`) at
   `$HF_HUB_CACHE` or `--cache-dir`, trying reflink, hardlink, symlink, copy in that order;

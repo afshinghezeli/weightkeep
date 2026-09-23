@@ -61,6 +61,8 @@ the hf CLI keep working, whether or not the Hub still has the files.`,
 
 	root.AddCommand(
 		newPullCommand(d),
+		newLsCommand(d),
+		newVerifyCommand(d),
 		newEnvCommand(d),
 		newVersionCommand(),
 	)

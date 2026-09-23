@@ -17,17 +17,19 @@ import (
 )
 
 var (
-	cfg     = fakehub.File{Path: "config.json", Content: []byte(`{"n": 1}`)}
-	lic     = fakehub.File{Path: "LICENSE", Content: []byte("Apache License 2.0 ...")}
-	q4      = fakehub.File{Path: "model-Q4_K_M.gguf", Content: bytes.Repeat([]byte("4"), 40_000), LFS: true}
-	q8      = fakehub.File{Path: "model-Q8_0.gguf", Content: bytes.Repeat([]byte("8"), 80_000), LFS: true}
-	shard   = fakehub.File{Path: "onnx/model.onnx", Content: bytes.Repeat([]byte("o"), 10_000), LFS: true}
+	cfg   = fakehub.File{Path: "config.json", Content: []byte(`{"n": 1}`)}
+	lic   = fakehub.File{Path: "LICENSE", Content: []byte("Apache License 2.0 ...")}
+	q4    = fakehub.File{Path: "model-Q4_K_M.gguf", Content: bytes.Repeat([]byte("4"), 40_000), LFS: true}
+	q8    = fakehub.File{Path: "model-Q8_0.gguf", Content: bytes.Repeat([]byte("8"), 80_000), LFS: true}
+	shard = fakehub.File{Path: "onnx/model.onnx", Content: bytes.Repeat([]byte("o"), 10_000), LFS: true}
+	// Same bytes as q4 under another name, as bartowski's Q4_K_M/Q4_K_L.
+	q4dup   = fakehub.File{Path: "model-Q4_K_L.gguf", Content: q4.Content, LFS: true}
 	tinyRep = hub.Repo{Type: hub.Model, ID: "acme/tiny"}
 )
 
 func newKeeper(t *testing.T) (*Keeper, *fakehub.Hub) {
 	t.Helper()
-	h := fakehub.New(&fakehub.Repo{ID: tinyRep.ID, License: "apache-2.0", Files: []fakehub.File{cfg, lic, q4, q8, shard}})
+	h := fakehub.New(&fakehub.Repo{ID: tinyRep.ID, License: "apache-2.0", Files: []fakehub.File{cfg, lic, q4, q4dup, q8, shard}})
 	t.Cleanup(h.Close)
 	client, err := hub.New(h.URL, hub.Options{})
 	if err != nil {
@@ -53,7 +55,7 @@ func TestPullEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Downloaded) != 5 || len(res.Skipped) != 0 {
+	if len(res.Downloaded)+len(res.Present) != 6 || len(res.Skipped) != 0 {
 		t.Errorf("downloaded %v, skipped %v", res.Downloaded, res.Skipped)
 	}
 	m := res.Manifest
@@ -71,7 +73,7 @@ func TestPullEverything(t *testing.T) {
 
 	// The manifest on disk matches, and main resolves to the commit.
 	saved, err := manifest.Load(ctx, k.Store, manifest.Repo{Type: "model", ID: tinyRep.ID}, m.Commit)
-	if err != nil || len(saved.Files) != 5 {
+	if err != nil || len(saved.Files) != 6 {
 		t.Fatalf("saved manifest: %v, %v", saved, err)
 	}
 	if c, _, err := manifest.ResolveRef(ctx, k.Store, manifest.Repo{Type: "model", ID: tinyRep.ID}, "main"); err != nil || c != m.Commit {
@@ -88,7 +90,7 @@ func TestPullEverything(t *testing.T) {
 	if len(reqs) != 1 || !strings.Contains(reqs[0].Path, "/revision/main") {
 		t.Errorf("second pull made requests %+v, want just the revision lookup", reqs)
 	}
-	if len(res.Downloaded) != 0 || len(res.Present) != 5 {
+	if len(res.Downloaded) != 0 || len(res.Present) != 6 {
 		t.Errorf("second pull: downloaded %v present %v", res.Downloaded, res.Present)
 	}
 
@@ -122,14 +124,14 @@ func TestPullWithFilters(t *testing.T) {
 			t.Errorf("%s not downloaded; small files and the included quant must be", p)
 		}
 	}
-	for _, p := range []string{"model-Q8_0.gguf", "onnx/model.onnx"} {
+	for _, p := range []string{"model-Q8_0.gguf", "onnx/model.onnx", "model-Q4_K_L.gguf"} {
 		if !has(res.Skipped, p) {
 			t.Errorf("%s should have been skipped", p)
 		}
 	}
 	// The manifest still describes the whole revision.
-	if len(res.Manifest.Files) != 5 {
-		t.Errorf("manifest lists %d files, want all 5", len(res.Manifest.Files))
+	if len(res.Manifest.Files) != 6 {
+		t.Errorf("manifest lists %d files, want all 6", len(res.Manifest.Files))
 	}
 
 	// A later pull with another filter adds to what is kept.
@@ -164,8 +166,8 @@ func TestPullErrors(t *testing.T) {
 	if !errors.As(err, &fe) || len(fe.Failures) != 1 || fe.Failures[0].Target.Path != q8.Path {
 		t.Fatalf("err = %v, want a FileError for %s", err, q8.Path)
 	}
-	if len(res.Downloaded) != 4 {
-		t.Errorf("downloaded %v, want the other 4 files", res.Downloaded)
+	if len(res.Downloaded)+len(res.Present) != 5 {
+		t.Errorf("downloaded %v present %v, want the other 5 files", res.Downloaded, res.Present)
 	}
 	if _, err := manifest.Load(ctx, k.Store, manifest.Repo{Type: "model", ID: tinyRep.ID}, res.Manifest.Commit); !errors.Is(err, manifest.ErrNotFound) {
 		t.Errorf("manifest saved for an incomplete pull: %v", err)

@@ -268,6 +268,17 @@ func TestVerifyDetectsCorruption(t *testing.T) {
 	if corrupt.SHA256 != b.SHA256 || corrupt.Got == b.SHA256 {
 		t.Errorf("CorruptError = %+v", corrupt)
 	}
+
+	moved, err := s.Quarantine(b.SHA256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Has(b.SHA256) {
+		t.Error("quarantined blob still counts as kept")
+	}
+	if data, err := os.ReadFile(moved); err != nil || string(data) != "jello\n" {
+		t.Errorf("quarantined copy: %q, %v", data, err)
+	}
 }
 
 func TestLookupGitSHA1(t *testing.T) {

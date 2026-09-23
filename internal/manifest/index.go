@@ -89,9 +89,11 @@ type Summary struct {
 	Repo      Repo
 	Commit    string
 	FetchedAt time.Time
-	Files     int
-	Size      int64
-	// VerifiedAt is the oldest verification time among the revision's blobs.
+	Files     int   // in the revision
+	Size      int64 // of the whole revision
+	KeptFiles int   // whose content is in the store
+	KeptSize  int64
+	// VerifiedAt is the oldest verification time among the kept blobs.
 	VerifiedAt time.Time
 }
 
@@ -99,7 +101,9 @@ type Summary struct {
 func List(ctx context.Context, st *store.Store) ([]Summary, error) {
 	rows, err := st.DB().QueryContext(ctx, `
 		SELECT r.repo_type, r.repo_id, r.commit_sha, r.fetched_at,
-		       COUNT(f.path), COALESCE(SUM(f.size), 0), COALESCE(MIN(b.verified_at), 0)
+		       COUNT(f.path), COALESCE(SUM(f.size), 0),
+		       COUNT(b.sha256), COALESCE(SUM(CASE WHEN b.sha256 IS NOT NULL THEN f.size END), 0),
+		       COALESCE(MIN(b.verified_at), 0)
 		FROM revisions r
 		LEFT JOIN files f USING (repo_type, repo_id, commit_sha)
 		LEFT JOIN blobs b ON b.sha256 = f.sha256
@@ -113,7 +117,8 @@ func List(ctx context.Context, st *store.Store) ([]Summary, error) {
 	for rows.Next() {
 		var s Summary
 		var fetched, verified int64
-		if err := rows.Scan(&s.Repo.Type, &s.Repo.ID, &s.Commit, &fetched, &s.Files, &s.Size, &verified); err != nil {
+		if err := rows.Scan(&s.Repo.Type, &s.Repo.ID, &s.Commit, &fetched, &s.Files, &s.Size,
+			&s.KeptFiles, &s.KeptSize, &verified); err != nil {
 			return nil, err
 		}
 		s.FetchedAt = time.Unix(fetched, 0).UTC()
