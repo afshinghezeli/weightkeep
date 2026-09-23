@@ -1,0 +1,44 @@
+name: Bug report
+description: Something doesn't work the way the docs say it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead.
+      placeholder: |
+        HF_ENDPOINT=http://127.0.0.1:8700 hf download HuggingFaceTB/SmolLM2-135M
+        expected the files; got "does not seem to be served by a Hugging Face Hub endpoint"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: weightkeep version
+      description: Output of `weightkeep version`.
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: Ubuntu 24.04 amd64 / macOS 15 arm64 / Windows 11
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client and version, if the problem involves `serve`
+      placeholder: huggingface_hub 1.32.0 / llama.cpp b6512 / ollama 0.12
+  - type: input
+    id: model
+    attributes:
+      label: Model repo and revision
+      placeholder: HuggingFaceTB/SmolLM2-135M@main
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Run with `--log-level debug` if you can. Remove tokens before pasting.
+      render: text
