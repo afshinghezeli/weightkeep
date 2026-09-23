@@ -46,7 +46,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   found, gated, unavailable.
   Accept: unit tests against an `httptest` fake Hub covering each error; one network test against
   `prajjwal1/bert-tiny`.
-- [ ] **M1.4 Manifest.** after M1.2
+- [x] **M1.4 Manifest.** after M1.2
   `Manifest{Repo, Type, Commit, FetchedAt, Files[{Path, Size, SHA256, GitSHA1, LFS}], License}` with
   canonical JSON (sorted, no insignificant whitespace), stored under `manifests/` and indexed in SQLite
   (`revisions`, `files`, `refs`).
