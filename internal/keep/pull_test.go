@@ -17,13 +17,13 @@ import (
 )
 
 var (
-	cfg     = fakehub.File{Path: "config.json", Content: []byte(`{"n": 1}`)}
-	lic     = fakehub.File{Path: "LICENSE", Content: []byte("Apache License 2.0 ...")}
-	q4      = fakehub.File{Path: "model-Q4_K_M.gguf", Content: bytes.Repeat([]byte("4"), 40_000), LFS: true}
-	q8      = fakehub.File{Path: "model-Q8_0.gguf", Content: bytes.Repeat([]byte("8"), 80_000), LFS: true}
-	shard   = fakehub.File{Path: "onnx/model.onnx", Content: bytes.Repeat([]byte("o"), 10_000), LFS: true}
+	cfg   = fakehub.File{Path: "config.json", Content: []byte(`{"n": 1}`)}
+	lic   = fakehub.File{Path: "LICENSE", Content: []byte("Apache License 2.0 ...")}
+	q4    = fakehub.File{Path: "model-Q4_K_M.gguf", Content: bytes.Repeat([]byte("4"), 40_000), LFS: true}
+	q8    = fakehub.File{Path: "model-Q8_0.gguf", Content: bytes.Repeat([]byte("8"), 80_000), LFS: true}
+	shard = fakehub.File{Path: "onnx/model.onnx", Content: bytes.Repeat([]byte("o"), 10_000), LFS: true}
 	// Same bytes as q4 under another name, as bartowski's Q4_K_M/Q4_K_L.
-	q4dup = fakehub.File{Path: "model-Q4_K_L.gguf", Content: q4.Content, LFS: true}
+	q4dup   = fakehub.File{Path: "model-Q4_K_L.gguf", Content: q4.Content, LFS: true}
 	tinyRep = hub.Repo{Type: hub.Model, ID: "acme/tiny"}
 )
 
