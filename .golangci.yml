@@ -24,6 +24,12 @@ linters:
     gosec:
       excludes:
         - G104 # unchecked errors are errcheck's job
+        # weightkeep's job is managing files at user-chosen paths. Blobs and
+        # exported caches are meant to be readable by other local tools, the
+        # same as the Hugging Face cache (0644 files, 0755 directories).
+        - G301
+        - G302
+        - G304
     nolintlint:
       require-explanation: true
       require-specific: true
