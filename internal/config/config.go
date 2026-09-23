@@ -106,7 +106,7 @@ func readConfigFile(env Env) (fileConfig, string, error) {
 	if path == "" {
 		path, explicit = defaultConfigPath(env), false
 	}
-	data, err := os.ReadFile(path) //nolint:gosec // G304: reading the user's own config file is the point
+	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) && !explicit {
 		return fc, path, nil
 	}
