@@ -89,6 +89,7 @@ through the same HTTP API the Hub speaks.
 | `internal/store` | Content-addressed blob store and SQLite metadata. The only package that writes under `blobs/`. |
 | `internal/manifest` | Per-revision manifest type, canonical JSON, (later) OMS signing. |
 | `internal/fetch` | Download a file from one or more sources into the store, with resume and verification. |
+| `internal/keep` | Operations commands run: pull, verify, gc. Combines store, manifests, Hub and fetcher. |
 | `internal/hfcache` | Write the `models--org--name/{blobs,snapshots,refs}` layout used by huggingface_hub and llama.cpp. |
 | `internal/proxy` | The HF-compatible HTTP server. |
 | `internal/policy` | Licence tiers and the rules for what may be shared. |
@@ -99,7 +100,7 @@ Packages are layered. A package may import only from layers below it:
 
 1. `ids`, `config`, `store`, `manifest`, `policy`: no network, no knowledge of the Hub's API.
 2. `hub`: talks to the upstream Hub.
-3. `fetch`, `hfcache`, `torrent`, `registry`: combine the store with a source.
+3. `fetch`, `keep`, `hfcache`, `torrent`, `registry`: combine the store with a source.
 4. `proxy`: serves the store over HTTP, fetching through layer 3.
 5. `cli` and `cmd/weightkeep`: wiring.
 
