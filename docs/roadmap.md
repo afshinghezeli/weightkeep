@@ -26,12 +26,13 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 
 ## M1 Keep
 
-- [ ] **M1.1 Config and paths.** after M0.3
+- [x] **M1.1 Config and paths.** after M0.3
   `WEIGHTKEEP_HOME` or `$XDG_DATA_HOME/weightkeep` or `~/.local/share/weightkeep` (Windows:
   `%LOCALAPPDATA%\weightkeep`); optional `config.toml`; Hub endpoint (`WEIGHTKEEP_UPSTREAM`, default
   `https://huggingface.co`); token discovery in huggingface_hub's order (`HF_TOKEN`, `HF_TOKEN_PATH`,
   `$HF_HOME/token`, `~/.cache/huggingface/token`).
   Accept: table tests for every precedence rule; tokens never appear in `String()` or logs.
+  Done: also added `weightkeep env` (like `go env`) to show the resolved settings in bug reports.
 - [ ] **M1.2 Blob store.** after M1.1
   `Put(io.Reader) (Blob, error)` streams to `tmp/`, computes SHA-256 and git blob SHA-1 in one pass,
   fsyncs, renames to `blobs/sha256/ab/<hex>`, sets 0444. `Open`, `Has`, `Verify`. SQLite (modernc, WAL)

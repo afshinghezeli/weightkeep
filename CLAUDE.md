@@ -34,7 +34,10 @@ gitignored).
   `docs/contributing/commits.md`. Stage files by name. No `Co-Authored-By` or "Generated with" lines.
 - Changing the store layout, SQLite schema, manifest format, proxy wire behaviour, licence policy or a
   core dependency needs an ADR first (`adr` skill).
-- Never push, tag, or create GitHub releases unless the user asks in this session.
+- `main` is protected (ruleset: PR, green CI, squash only). One branch and one PR per task:
+  `git switch -c feat/<topic>`, commit, `git push -u origin HEAD`, `gh pr create`, wait for CI,
+  `gh pr merge --squash`. PR title = the Conventional Commit subject for `main`.
+- Never tag or create GitHub releases by hand; release-please does that.
 
 ## Go rules
 

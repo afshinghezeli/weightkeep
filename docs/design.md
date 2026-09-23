@@ -57,6 +57,7 @@ through the same HTTP API the Hub speaks.
 | `weightkeep seed` | Share kept blobs over BitTorrent, within disk and bandwidth budgets, for licences that allow it. |
 | `weightkeep registry sync` | Fetch the signed community registry (TUF). |
 | `weightkeep gc` | Drop unreferenced blobs. |
+| `weightkeep env` | Print resolved paths, upstream and token source (never the token). |
 
 ## Architecture
 
