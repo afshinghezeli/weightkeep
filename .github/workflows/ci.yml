@@ -60,3 +60,19 @@ jobs:
           go-version: stable
       - name: test with race detector
         run: go test -race ./...
+
+  # Checks our assumptions against huggingface.co itself. Not a required
+  # check: a slow Hub shouldn't block merges, but drift should be visible.
+  network:
+    runs-on: ubuntu-latest
+    env:
+      WEIGHTKEEP_NETWORK_TESTS: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: network tests
+        run: go test -timeout 10m -run 'Real' ./...

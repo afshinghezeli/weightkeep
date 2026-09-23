@@ -39,7 +39,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   with a `blobs` table and a migration runner.
   Accept: concurrent `Put` of identical content leaves one blob and no temp files; a corrupted blob
   fails `Verify`; killing mid-`Put` leaves nothing under `blobs/`.
-- [ ] **M1.3 Hub client.** after M1.1
+- [x] **M1.3 Hub client.** after M1.1
   Resolve a revision to a commit; list the tree recursively (following `Link` pagination); file
   metadata via HEAD without following cross-host redirects; ranged GET that follows redirects and sends
   `Authorization` only to the Hub host. Typed errors: repo not found, revision not found, entry not
