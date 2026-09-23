@@ -240,3 +240,23 @@ func writeAtomic(path string, data []byte) error {
 	}
 	return os.Rename(tmp.Name(), path)
 }
+
+// RefsFor lists the ref names last seen pointing at commit.
+func RefsFor(ctx context.Context, st *store.Store, repo Repo, commit string) ([]string, error) {
+	rows, err := st.DB().QueryContext(ctx,
+		`SELECT name FROM refs WHERE repo_type = ? AND repo_id = ? AND commit_sha = ? ORDER BY name`,
+		repo.Type, repo.ID, commit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
