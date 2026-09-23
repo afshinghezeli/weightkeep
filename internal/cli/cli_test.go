@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/afshinghezeli/weightkeep/internal/config"
+	"github.com/afshinghezeli/weightkeep/internal/testutil/fakehub"
 )
 
 func run(t *testing.T, args ...string) (stdout, stderr string, code int) {
@@ -74,5 +75,46 @@ func TestEnvNeverPrintsToken(t *testing.T) {
 		if !strings.Contains(out.String(), "hf_*** (from HF_TOKEN)") {
 			t.Errorf("%v does not say where the token came from:\n%s", args, out.String())
 		}
+	}
+}
+
+func TestPull(t *testing.T) {
+	h := fakehub.New(&fakehub.Repo{ID: "acme/tiny", License: "mit", Files: []fakehub.File{
+		{Path: "config.json", Content: []byte("{}")},
+		{Path: "model.safetensors", Content: bytes.Repeat([]byte("w"), 5000), LFS: true},
+	}})
+	defer h.Close()
+	home := t.TempDir()
+	d := deps{loadConfig: func() (*config.Config, error) {
+		return &config.Config{Home: home, Upstream: h.URL}, nil
+	}}
+
+	var out, errOut bytes.Buffer
+	if code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, []string{"pull", "acme/tiny"}); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Errorf("pull wrote to stdout: %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "kept acme/tiny@") || !strings.Contains(errOut.String(), "2 downloaded") {
+		t.Errorf("summary missing: %s", errOut.String())
+	}
+
+	errOut.Reset()
+	if code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, []string{"pull", "acme/tiny"}); code != 0 {
+		t.Fatalf("second pull exit %d: %s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "0 downloaded, 2 already kept") {
+		t.Errorf("second pull summary: %s", errOut.String())
+	}
+
+	errOut.Reset()
+	code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, []string{"pull", "acme/missing"})
+	if code == 0 || !strings.Contains(errOut.String(), "check the spelling") {
+		t.Errorf("missing repo: exit %d, %s", code, errOut.String())
+	}
+	code = execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, []string{"pull", "../etc"})
+	if code == 0 {
+		t.Error("invalid repo id accepted")
 	}
 }
