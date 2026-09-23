@@ -13,7 +13,7 @@ LDFLAGS  := -s -w \
 
 export CGO_ENABLED := 0
 
-.PHONY: build test test-race lint tidy-check check compat clean
+.PHONY: build test test-race lint tidy-check check compat hooks clean
 
 build:
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/weightkeep
@@ -35,6 +35,9 @@ check: tidy-check lint test build
 
 compat: build
 	./test/compat/run.sh
+
+hooks:
+	git config core.hooksPath .githooks
 
 clean:
 	rm -rf bin dist

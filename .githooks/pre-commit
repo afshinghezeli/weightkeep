@@ -1,0 +1,12 @@
+#!/bin/sh
+# Refuse commits with Go files that gofmt would change.
+# Enable with: make hooks   (sets core.hooksPath to .githooks)
+files=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')
+[ -z "$files" ] && exit 0
+unformatted=$(gofmt -l $files)
+if [ -n "$unformatted" ]; then
+	echo "gofmt needed on:" >&2
+	echo "$unformatted" | sed 's/^/  /' >&2
+	echo "run: gofmt -w <files>" >&2
+	exit 1
+fi
