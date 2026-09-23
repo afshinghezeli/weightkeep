@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Release builds. Run by .github/workflows/release.yml after release-please
+# creates a tag. Try locally with: goreleaser release --snapshot --clean
+version: 2
+
+project_name: weightkeep
+
+before:
+  hooks:
+    - go mod tidy -diff
+
+builds:
+  - id: weightkeep
+    main: ./cmd/weightkeep
+    binary: weightkeep
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/afshinghezeli/weightkeep/internal/version.Version={{ .Version }}
+      - -X github.com/afshinghezeli/weightkeep/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/afshinghezeli/weightkeep/internal/version.Date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+nfpms:
+  - id: packages
+    package_name: weightkeep
+    vendor: weightkeep
+    homepage: https://github.com/afshinghezeli/weightkeep
+    maintainer: Afshin Ghezeli <https://github.com/afshinghezeli>
+    description: Keep verified copies of open-weight models and serve them through a local Hub-compatible endpoint.
+    license: Apache-2.0
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# release-please writes the changelog and creates the GitHub release;
+# GoReleaser only attaches the artifacts.
+changelog:
+  disable: true
+
+release:
+  mode: keep-existing
+  draft: false
