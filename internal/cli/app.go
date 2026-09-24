@@ -60,8 +60,8 @@ func explain(err error, repo string) error {
 		return fmt.Errorf("%w\nthe token in use was rejected; check `weightkeep env` for where it comes from", err)
 	case errors.Is(err, hub.ErrDisabled):
 		return fmt.Errorf("%w\nthe Hub no longer serves %s", err, repo)
-	case errors.Is(err, hub.ErrUnavailable):
-		return fmt.Errorf("%w\nthe Hub did not answer; try again later. Files already kept are served offline by `weightkeep serve`", err)
+	case hub.Retryable(err):
+		return fmt.Errorf("%w\nthe Hub can't be reached. Kept revisions are still served by `weightkeep serve`; to get this one from another weightkeep node, use `weightkeep pull --torrent <magnet> --peer HOST:PORT`", err)
 	}
 	return err
 }
