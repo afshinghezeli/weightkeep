@@ -124,7 +124,11 @@ type authTransport struct {
 
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
-	req.Header.Set("User-Agent", t.userAgent)
+	// A relayed request may carry the client's User-Agent: the Hub answers
+	// Ollama and llama.cpp differently on the same endpoint.
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", t.userAgent)
+	}
 	req.Header.Del("Authorization")
 	if req.URL.Host == t.host && !t.token.IsZero() {
 		req.Header.Set("Authorization", "Bearer "+t.token.Value())
@@ -320,18 +324,43 @@ func redactURL(raw string) string {
 // Passthrough sends a request to the Hub as-is (same method, path, query and
 // body) and returns the raw response for the proxy to relay. Redirects to
 // other hosts are not followed. The caller closes the body.
-func (c *Client) Passthrough(ctx context.Context, method, pathAndQuery string, body io.Reader, contentType string) (*http.Response, error) {
+func (c *Client) Passthrough(ctx context.Context, method, pathAndQuery string, body io.Reader, header http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.base.String()+pathAndQuery, body)
 	if err != nil {
 		return nil, err
 	}
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
+	for _, k := range []string{"Content-Type", "Accept", "User-Agent"} {
+		if v := header.Get(k); v != "" {
+			req.Header.Set(k, v)
+		}
 	}
 	req.Header.Set("Accept-Encoding", "identity")
 	resp, err := c.api.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s %s: %w", method, redactURL(req.URL.String()), err)
+	}
+	return resp, nil
+}
+
+// GetFollow fetches a Hub path following redirects (to CDNs too), for small
+// generated files like Ollama's config blobs. The caller closes the body.
+func (c *Client) GetFollow(ctx context.Context, pathAndQuery string, header http.Header) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base.String()+pathAndQuery, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range []string{"Accept", "User-Agent"} {
+		if v := header.Get(k); v != "" {
+			req.Header.Set(k, v)
+		}
+	}
+	resp, err := c.download.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET %s: %w", redactURL(req.URL.String()), err)
+	}
+	if resp.StatusCode >= 400 {
+		defer resp.Body.Close()
+		return nil, classify(resp)
 	}
 	return resp, nil
 }

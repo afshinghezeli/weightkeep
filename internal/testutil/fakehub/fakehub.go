@@ -230,6 +230,8 @@ func (h *Hub) serveHub(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.EscapedPath()
 	switch {
+	case strings.HasPrefix(path, "/v2/"):
+		h.serveOllama(w, r, strings.TrimPrefix(path, "/v2/"))
 	case strings.HasPrefix(path, "/api/models/"):
 		h.serveAPI(w, r, strings.TrimPrefix(path, "/api/models/"))
 	case strings.HasPrefix(path, "/api/resolve-cache/models/"):
@@ -576,4 +578,68 @@ func (c *cutWriter) Write(b []byte) (int, error) {
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// ollamaConfig is the generated config blob for a repo's Ollama manifest.
+func ollamaConfig(repo *Repo) []byte {
+	return []byte(`{"model_format":"gguf","repo":"` + repo.ID + `"}`)
+}
+
+func sha256hex(b []byte) string {
+	s := sha256.Sum256(b)
+	return hex.EncodeToString(s[:])
+}
+
+// serveOllama imitates the Hub's Ollama registry: /v2/{id}/manifests/{tag}
+// picks the GGUF whose name contains the tag; the config layer is generated
+// and served with 200 plus a Location header, the model layer with a 307
+// to the resolve URL.
+func (h *Hub) serveOllama(w http.ResponseWriter, r *http.Request, rest string) {
+	var id, kind, arg string
+	if i := strings.Index(rest, "/manifests/"); i > 0 {
+		id, kind, arg = rest[:i], "manifest", rest[i+len("/manifests/"):]
+	} else if i := strings.Index(rest, "/blobs/sha256:"); i > 0 {
+		id, kind, arg = rest[:i], "blob", rest[i+len("/blobs/sha256:"):]
+	} else {
+		http.NotFound(w, r)
+		return
+	}
+	h.mu.Lock()
+	repo := h.repos[id]
+	h.mu.Unlock()
+	if repo == nil {
+		http.NotFound(w, r)
+		return
+	}
+	var gguf *File
+	for i := range repo.Files {
+		f := &repo.Files[i]
+		if strings.HasSuffix(f.Path, ".gguf") && (kind == "blob" && f.SHA256() == arg || kind == "manifest" && strings.Contains(f.Path, arg)) {
+			gguf = f
+			break
+		}
+	}
+	cfg := ollamaConfig(repo)
+	switch {
+	case kind == "manifest" && gguf != nil:
+		writeJSON(w, map[string]any{
+			"schemaVersion": 2,
+			"mediaType":     "application/vnd.docker.distribution.manifest.v2+json",
+			"config":        map[string]any{"digest": "sha256:" + sha256hex(cfg), "mediaType": "application/vnd.docker.container.image.v1+json", "size": len(cfg)},
+			"layers": []map[string]any{
+				{"digest": "sha256:" + gguf.SHA256(), "mediaType": "application/vnd.ollama.image.model", "size": len(gguf.Content)},
+			},
+		})
+	case kind == "blob" && arg == sha256hex(cfg):
+		w.Header().Set("Location", "?__sign=fake")
+		w.Header().Set("Content-Length", strconv.Itoa(len(cfg)))
+		_, _ = w.Write(cfg)
+	case kind == "blob" && gguf != nil:
+		w.Header().Set("Location", "/"+repo.ID+"/resolve/main/"+gguf.Path)
+		w.WriteHeader(http.StatusTemporaryRedirect)
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"The specified tag is not a valid quantization scheme."}`))
+	}
 }

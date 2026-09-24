@@ -14,6 +14,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,6 +85,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"bytes", rec.bytes, "duration", time.Since(start).Round(time.Millisecond))
 	}()
 
+	if strings.HasPrefix(r.URL.Path, "/v2") || strings.HasPrefix(r.URL.Path, "/blobs/") {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(rec, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if s.handleOllama(rec, r) {
+			return
+		}
+	}
 	rt, err := parseRoute(r.URL.EscapedPath())
 	if err != nil {
 		http.Error(rec, err.Error(), http.StatusBadRequest)

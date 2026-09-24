@@ -275,7 +275,7 @@ func (s *Server) handlePathsInfo(w http.ResponseWriter, r *http.Request, rt rout
 // refs weightkeep has seen.
 func (s *Server) handleRefs(w http.ResponseWriter, r *http.Request, rt route) {
 	if !s.offline {
-		resp, err := s.k.Hub.Passthrough(r.Context(), http.MethodGet, r.URL.RequestURI(), nil, "")
+		resp, err := s.k.Hub.Passthrough(r.Context(), http.MethodGet, r.URL.RequestURI(), nil, r.Header)
 		if err == nil && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
 			s.relay(w, r, resp)
 			return
@@ -327,7 +327,7 @@ func (s *Server) passthrough(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		body = http.MaxBytesReader(w, r.Body, 32<<20)
 	}
-	resp, err := s.k.Hub.Passthrough(r.Context(), r.Method, r.URL.RequestURI(), body, r.Header.Get("Content-Type"))
+	resp, err := s.k.Hub.Passthrough(r.Context(), r.Method, r.URL.RequestURI(), body, r.Header)
 	if err != nil {
 		writeError(w, err)
 		return
