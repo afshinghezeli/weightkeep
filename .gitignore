@@ -24,3 +24,4 @@ CLAUDE.local.md
 # Python venv used by the client compatibility tests
 /test/compat/.venv/
 __pycache__/
+.pytest_cache/
