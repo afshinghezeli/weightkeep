@@ -34,9 +34,12 @@ governments may "restrict the models or datasets available through Hugging Face"
 - **`verify`** re-hashes what's kept and quarantines anything that changed on disk.
 - **`export`** writes a kept model into the Hugging Face cache (or a plain directory), so
   `HF_HUB_OFFLINE=1` works without anything running.
-
-Sharing kept models with other people over BitTorrent, with the Hub as a fallback seed, is the next
-milestone ([roadmap](docs/roadmap.md)). It will only ever share models whose licence allows it.
+- **`seed`** shares fully kept revisions over BitTorrent, straight from the store, with the Hub as a
+  web seed. It only shares what the licence allows (`weightkeep license` explains each decision) and
+  never gated repos.
+- **`pull --torrent`** gets a revision from other weightkeep nodes when the Hub can't serve it. The
+  torrent carries the revision's manifest, covered by its info hash, so a magnet link is enough to
+  check every file. A `mirrors` list does the same over HTTP, with any node's `serve` as a mirror.
 
 ## Install
 
@@ -80,6 +83,22 @@ ollama pull 127.0.0.1:8700/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M --insecur
 
 Setup notes for each client, including what isn't supported: [docs/clients.md](docs/clients.md).
 
+## Sharing
+
+```sh
+# See what would be shared, and why the rest isn't.
+weightkeep seed --dry-run
+
+# Share, with limits. Prints a magnet link per revision.
+weightkeep seed --upload-rate 10MB --monthly-cap 2TB
+
+# On another machine, without the Hub:
+weightkeep pull --torrent 'magnet:?xt=urn:btih:...' --peer 192.168.1.20:6881
+```
+
+Torrents are ordinary BitTorrent v1 with padded files, so qBittorrent, Transmission and libtorrent can
+download them too, from peers or from the Hub while it still has the files.
+
 ## How it works
 
 A pull resolves the branch to a commit and lists the repository's files with their hashes: SHA-256
@@ -107,14 +126,15 @@ Design notes and the reasoning behind each decision: [docs/design.md](docs/desig
 | Checks content against Hub hashes | SHA-256 or git id, every file | size only over HTTP; Xet checks its chunks | not documented | varies |
 | Detects later corruption on disk | `verify` | no | not documented | client recheck |
 | Dedup | whole files, across repos | Xet chunks | not documented | no |
-| P2P fallback | not yet | no | no | yes |
+| P2P fallback | BitTorrent, Hub as web seed | no | no | yes |
 
 Checked against huggingface_hub 1.32 and olah's README and issues in September 2026.
 
 ## Status and limits
 
-Version 0.1. It works for me on macOS and Linux with the clients listed above, and the compatibility
-suite runs them against the real Hub on every change. Expect the command-line flags to change before 1.0;
+Version 0.2. It works for me on macOS and Linux with the clients listed above, and the compatibility
+suite runs them against the real Hub on every change. Seeding and pulling from peers are new in 0.2 and
+have been tested between machines on one network, not yet at swarm scale. Expect the command-line flags to change before 1.0;
 the store format has a migration path.
 
 - Files over 50 GB can't be served to huggingface_hub over plain HTTP (it refuses; the Hub itself uses
@@ -127,8 +147,9 @@ the store format has a migration path.
 ## FAQ
 
 **Is this for getting around takedowns?** No. weightkeep keeps what you pull, for your own use, the same
-way the Hugging Face cache does, with stronger checks. When sharing arrives it will be limited to models
-whose licence allows redistribution, never gated repos, and it will honour a denylist.
+way the Hugging Face cache does, with stronger checks. Sharing is limited to models whose licence allows
+redistribution (with the licence text attached), never gated repos, and a mirror is never asked for a
+repo the Hub gates.
 
 **Why not just use the Hugging Face cache?** The cache is keyed per repo and branch, doesn't re-verify
 files, and gets pruned. It also only helps tools that use huggingface_hub; llama.cpp and Ollama keep their
