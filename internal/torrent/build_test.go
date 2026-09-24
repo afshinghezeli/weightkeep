@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -161,8 +162,12 @@ func TestMatchesLibtorrent(t *testing.T) {
 	if err != nil {
 		t.Skip("uv not installed")
 	}
-	for _, pl := range []int64{16 << 10, 64 << 10, 4 << 20} {
-		t.Run(strconv.FormatInt(pl, 10), func(t *testing.T) {
+	for _, c := range []struct {
+		pl     int64
+		v1Only bool
+	}{{16 << 10, false}, {64 << 10, false}, {4 << 20, false}, {16 << 10, true}, {4 << 20, true}} {
+		pl := c.pl
+		t.Run(fmt.Sprintf("%d-v1only=%v", pl, c.v1Only), func(t *testing.T) {
 			files := sampleFiles(pl)
 			dir := filepath.Join(t.TempDir(), commit)
 			for p, b := range files {
@@ -174,19 +179,27 @@ func TestMatchesLibtorrent(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			res, err := Build(commit, toFiles(files), Options{PieceLength: pl})
+			res, err := Build(commit, toFiles(files), Options{PieceLength: pl, V1Only: c.v1Only})
 			if err != nil {
 				t.Fatal(err)
 			}
-			out, err := exec.Command(uv, "run", "--quiet", "--no-project", "--python", "3.13", "--with", "libtorrent==2.1.1",
-				"python", "testdata/libtorrent_hashes.py", dir, strconv.FormatInt(pl, 10)).CombinedOutput()
+			args := []string{"run", "--quiet", "--no-project", "--python", "3.13", "--with", "libtorrent==2.1.1",
+				"python", "testdata/libtorrent_hashes.py", dir, strconv.FormatInt(pl, 10)}
+			if c.v1Only {
+				args = append(args, "v1")
+			}
+			out, err := exec.Command(uv, args...).CombinedOutput()
 			if err != nil {
 				t.Fatalf("libtorrent: %v\n%s", err, out)
 			}
 			fields := strings.Fields(string(out))
-			want := hex.EncodeToString(res.InfoHashV1[:]) + " " + hex.EncodeToString(res.InfoHashV2[:])
-			if got := strings.Join(fields[len(fields)-2:], " "); got != want {
-				t.Errorf("libtorrent says %s\nwe say         %s", got, want)
+			if got, want := fields[len(fields)-2], hex.EncodeToString(res.InfoHashV1[:]); got != want {
+				t.Errorf("v1 info hash: libtorrent %s, we %s", got, want)
+			}
+			if !c.v1Only {
+				if got, want := fields[len(fields)-1], hex.EncodeToString(res.InfoHashV2[:]); got != want {
+					t.Errorf("v2 info hash: libtorrent %s, we %s", got, want)
+				}
 			}
 		})
 	}

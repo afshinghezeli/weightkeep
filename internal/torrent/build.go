@@ -42,6 +42,11 @@ type Options struct {
 	// Comment and CreatedBy go into the metainfo as usual.
 	Comment   string
 	CreatedBy string
+	// V1Only leaves out the v2 file tree and piece layers. The v1 part is
+	// the same: sorted files, each padded to a piece boundary, as libtorrent
+	// makes with v1_only|canonical_files. See ADR 0010 for why this is the
+	// default for seeding for now.
+	V1Only bool
 }
 
 // Result is a built torrent.
@@ -56,8 +61,11 @@ type Result struct {
 	PieceLength int64
 }
 
-// Magnet returns a hybrid magnet link with both info hashes.
+// Magnet returns a magnet link, with the v2 hash too for hybrid torrents.
 func (r *Result) Magnet(name string) string {
+	if r.InfoHashV2 == ([32]byte{}) {
+		return fmt.Sprintf("magnet:?xt=urn:btih:%x&dn=%s", r.InfoHashV1, name)
+	}
 	return fmt.Sprintf("magnet:?xt=urn:btih:%x&xt=urn:btmh:1220%x&dn=%s", r.InfoHashV1, r.InfoHashV2, name)
 }
 
@@ -140,22 +148,26 @@ func Build(name string, files []File, opts Options) (*Result, error) {
 	v1.finish()
 
 	info := map[string]any{
-		"file tree":    fileTree,
 		"files":        v1Files,
-		"meta version": 2,
 		"name":         name,
 		"piece length": pl,
 		"pieces":       string(v1.pieces),
+	}
+	if !opts.V1Only {
+		info["file tree"] = fileTree
+		info["meta version"] = 2
 	}
 	infoBytes, err := bencode.Marshal(info)
 	if err != nil {
 		return nil, err
 	}
 	res.InfoHashV1 = sha1.Sum(infoBytes) //nolint:gosec // G401: v1 infohash is SHA-1
-	res.InfoHashV2 = sha256.Sum256(infoBytes)
+	if !opts.V1Only {
+		res.InfoHashV2 = sha256.Sum256(infoBytes)
+	}
 
 	mi := map[string]any{"info": bencode.Bytes(infoBytes)}
-	if len(pieceLayers) > 0 {
+	if len(pieceLayers) > 0 && !opts.V1Only {
 		mi["piece layers"] = pieceLayers
 	}
 	if len(opts.WebSeeds) > 0 {
