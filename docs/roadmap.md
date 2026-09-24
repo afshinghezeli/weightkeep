@@ -140,10 +140,12 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Done: most permissive repos have no LICENSE file, so ADR 0009 amends 0007: weightkeep bundles the
   SPDX texts of tier A licences and attaches them when sharing. `weightkeep license REPO` explains the
   decision.
-- [ ] **M3.2 Hybrid torrent builder.** after M3.0
+- [x] **M3.2 Hybrid torrent builder.** after M3.0
   One pass computes v1 SHA-1 pieces (with BEP 47 padding), v2 merkle roots and piece layers, and plain
   SHA-256. `info.name` = commit, `url-list` = Hub resolve base.
   Accept: infohashes match libtorrent's for the same files (compat test with python-libtorrent).
+  Done: v1 and v2 info hashes match libtorrent 2.1.1 for boundary-size files at three piece lengths
+  and for the real SmolLM2-135M revision. libtorrent pads after the last file too; so do we.
 - [ ] **M3.3 Torrent client over the store.** after M3.2
   anacrolix client with storage mapped onto `blobs/` and `tmp/`; piece completion in our SQLite.
 - [ ] **M3.4 `seed`.** after M3.1, M3.3
