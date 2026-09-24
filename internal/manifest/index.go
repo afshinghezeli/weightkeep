@@ -157,6 +157,7 @@ func Delete(ctx context.Context, st *store.Store, repo Repo, commit string) erro
 		repo.Type, repo.ID, commit); err != nil {
 		return err
 	}
+	_ = os.Remove(InfoPath(st.Root(), repo, commit))
 	err := os.Remove(Path(st.Root(), repo, commit))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -266,4 +267,31 @@ func DeleteRefs(ctx context.Context, st *store.Store, repo Repo, commit string) 
 	_, err := st.DB().ExecContext(ctx,
 		`DELETE FROM refs WHERE repo_type = ? AND repo_id = ? AND commit_sha = ?`, repo.Type, repo.ID, commit)
 	return err
+}
+
+// InfoPath is where the upstream's repo info JSON for repo@commit is kept.
+func InfoPath(root string, repo Repo, commit string) string {
+	p := Path(root, repo, commit)
+	return strings.TrimSuffix(p, ".json") + ".info.json"
+}
+
+// SaveInfo keeps the upstream's /api/{type}s/{id}/revision/{commit} answer,
+// so the proxy can replay it offline.
+func SaveInfo(st *store.Store, repo Repo, commit string, raw []byte) error {
+	if !ids.IsCommit(commit) || ids.ValidateRepoID(repo.ID) != nil {
+		return fmt.Errorf("save info: bad repo or commit")
+	}
+	return writeAtomic(InfoPath(st.Root(), repo, commit), raw)
+}
+
+// LoadInfo returns the saved repo info JSON, or ErrNotFound.
+func LoadInfo(st *store.Store, repo Repo, commit string) ([]byte, error) {
+	if !ids.IsCommit(commit) || ids.ValidateRepoID(repo.ID) != nil {
+		return nil, ErrNotFound
+	}
+	data, err := os.ReadFile(InfoPath(st.Root(), repo, commit))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("info for %s@%s: %w", repo, commit, ErrNotFound)
+	}
+	return data, err
 }

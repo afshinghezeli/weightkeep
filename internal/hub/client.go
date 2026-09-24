@@ -316,3 +316,22 @@ func redactURL(raw string) string {
 	}
 	return raw
 }
+
+// Passthrough sends a request to the Hub as-is (same method, path, query and
+// body) and returns the raw response for the proxy to relay. Redirects to
+// other hosts are not followed. The caller closes the body.
+func (c *Client) Passthrough(ctx context.Context, method, pathAndQuery string, body io.Reader, contentType string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.base.String()+pathAndQuery, body)
+	if err != nil {
+		return nil, err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set("Accept-Encoding", "identity")
+	resp, err := c.api.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: %w", method, redactURL(req.URL.String()), err)
+	}
+	return resp, nil
+}

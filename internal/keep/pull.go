@@ -171,6 +171,11 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 		if err := manifest.Save(ctx, k.Store, m); err != nil {
 			return nil, err
 		}
+		if info != nil && info.SHA == m.Commit {
+			if err := manifest.SaveInfo(k.Store, mrepo, m.Commit, info.Raw); err != nil {
+				return nil, err
+			}
+		}
 		if err := manifest.SetRef(ctx, k.Store, mrepo, rev, m.Commit, k.now()); err != nil {
 			return nil, err
 		}
