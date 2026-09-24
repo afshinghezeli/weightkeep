@@ -2,20 +2,34 @@
 
 ## [0.2.0](https://github.com/afshinghezeli/weightkeep/compare/v0.1.0...v0.2.0) (2026-09-24)
 
+Sharing. Kept revisions can now be seeded over BitTorrent, where their licence allows it, and pulled
+from other weightkeep nodes when the Hub can't serve them, by torrent or through HTTP mirrors.
 
 ### Added
 
-* **cli:** add seed command ([#22](https://github.com/afshinghezeli/weightkeep/issues/22)) ([28a13e3](https://github.com/afshinghezeli/weightkeep/commit/28a13e36206445618d0108680f963a868f8d95a7))
-* **cli:** pull a revision from other nodes over BitTorrent ([#23](https://github.com/afshinghezeli/weightkeep/issues/23)) ([9df38e9](https://github.com/afshinghezeli/weightkeep/commit/9df38e9d7b10cdbf83648ed7d4abecca003b7df1))
-* **keep:** fall back to mirrors when the Hub can't serve a revision ([#24](https://github.com/afshinghezeli/weightkeep/issues/24)) ([ea08340](https://github.com/afshinghezeli/weightkeep/commit/ea083406031fda19c72b936acdc77180138f2c60))
-* **policy:** decide sharing tiers from licence, gate and base models ([#16](https://github.com/afshinghezeli/weightkeep/issues/16)) ([2031cd0](https://github.com/afshinghezeli/weightkeep/commit/2031cd0130b3e399b2fd6393ca92990fbc6ed9c6))
-* **torrent:** build hybrid v1+v2 torrents for a revision ([#17](https://github.com/afshinghezeli/weightkeep/issues/17)) ([829e1b8](https://github.com/afshinghezeli/weightkeep/commit/829e1b83f5e6a876f7ba028b5bae7cf412315a46))
-* **torrent:** seed kept revisions straight from the store ([#19](https://github.com/afshinghezeli/weightkeep/issues/19)) ([0e32878](https://github.com/afshinghezeli/weightkeep/commit/0e328780410af554b86714e55e4b7752d573f9a1))
+* `weightkeep seed` shares fully kept revisions straight from the store, with the Hub as a web seed,
+  an upload rate limit and a monthly cap. Every revision is listed with the reason it is or isn't
+  shared. ([#19](https://github.com/afshinghezeli/weightkeep/pull/19),
+  [#22](https://github.com/afshinghezeli/weightkeep/pull/22))
+* `weightkeep license REPO` shows the sharing tier a revision gets and why: gated, private and
+  unlicensed repos are never shared; tier B licences (Llama, Gemma, OpenRAIL, ...) need an explicit
+  `--allow`, non-commercial ones also `--non-commercial`. When a permissively licensed repo has no
+  LICENSE file, the licence text travels with the torrent.
+  ([#16](https://github.com/afshinghezeli/weightkeep/pull/16))
+* `weightkeep pull --torrent MAGNET [--peer HOST:PORT]` fetches a revision from other nodes. The
+  torrent carries the revision's manifest inside its info dict, so a magnet link alone is enough to
+  verify every file. ([#23](https://github.com/afshinghezeli/weightkeep/pull/23))
+* A `mirrors` list (config or `WEIGHTKEEP_MIRRORS`) is tried when the Hub is down or no longer has a
+  repo; any node's `weightkeep serve` works as a mirror. Never used for gated repos, and mirrors never
+  receive your Hub token. ([#24](https://github.com/afshinghezeli/weightkeep/pull/24))
 
+### Notes
 
-### Documentation
-
-* describe sharing and pulling from peers in the README ([#26](https://github.com/afshinghezeli/weightkeep/issues/26)) ([88e42bb](https://github.com/afshinghezeli/weightkeep/commit/88e42bbd23d0bef5d75e597ee7bb9aaf5a92ad22))
+* Torrents are BitTorrent v1 with padded files, which qBittorrent, Transmission and libtorrent download
+  too. Hybrid v1+v2 torrents are built and tested but not seeded yet: anacrolix/torrent and libtorrent
+  disagree on piece lengths for them (ADR 0010).
+* Downloading from the Hub as a web seed was tested for 76 minutes, past the expiry of the Hub's
+  signed CDN URLs.
 
 ## 0.1.0 (2026-09-24)
 
