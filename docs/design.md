@@ -55,7 +55,7 @@ through the same HTTP API the Hub speaks.
 | `weightkeep serve` | HF-compatible HTTP endpoint. Pull-through on cache miss when online. |
 | `weightkeep export org/model@rev` | Materialise a revision into the standard HF cache layout (or a plain directory). |
 | `weightkeep seed` | Share fully kept revisions over BitTorrent (Hub as web seed), with an upload rate and monthly cap, for licences that allow it. |
-| `weightkeep registry sync` | Fetch the signed community registry (TUF). |
+| `weightkeep registry sync\|show\|record` | Fetch and check the signed community registry (TUF), look up records, print a record to submit. |
 | `weightkeep rm REPO@REV` | Forget a revision (its blobs go at the next `gc`). |
 | `weightkeep gc` | Drop unreferenced blobs, stale locks and abandoned partials. |
 | `weightkeep license REPO` | Show the sharing tier of a kept revision and why. |
@@ -96,7 +96,7 @@ through the same HTTP API the Hub speaks.
 | `internal/proxy` | The HF-compatible HTTP server. |
 | `internal/policy` | Licence tiers and the rules for what may be shared. |
 | `internal/torrent` | Hybrid v1/v2 torrent builder and the anacrolix client wrapper. (M3) |
-| `internal/registry` | TUF client for the community registry. (M4) |
+| `internal/registry` | Community registry: TUF client, builder and the submission check. |
 
 Packages are layered. A package may import only from layers below it:
 
@@ -182,9 +182,11 @@ peers and fall back to the Hub by itself. See [ADR 0005](adr/0005-bittorrent-v2-
 - Per revision, a manifest lists every file's path, size, SHA-256, and (M3+) BEP 52 root.
 - The exported form is an OpenSSF Model Signing (OMS) v1.0 statement, so tools from the model-signing
   project can verify our output, and our SHA-256 values equal the Hub's own.
-- The community registry is a git repo of submitted manifests. CI turns it into a static TUF repository
-  (root and targets signed by maintainers with a threshold, snapshot and timestamp signed online), served
-  from GitHub Pages and any number of untrusted mirrors.
+- The community registry is a git repo of submitted records (manifest plus magnet link). CI checks
+  each against the Hub and turns the repo into a static TUF repository (root signed offline by
+  maintainers with a threshold; targets, snapshot and timestamp signed by CI), which any web server or
+  mirror can host. `weightkeep-registry` is the maintainer tool; [registry.md](registry.md) explains
+  running one.
 - A signed denylist ships through the same TUF repository.
 
 See [ADR 0006](adr/0006-registry-trust-model.md).
