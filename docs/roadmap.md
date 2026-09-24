@@ -93,18 +93,20 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   HEAD/GET `/{repo}/resolve/{rev}/{path}` with every header in ADR 0004, Range (206, 416), zero-length
   files, `EntryNotFound` and `RevisionNotFound` 404s with `X-Repo-Commit`.
   Accept: handler tests for each header and status.
-- [ ] **M2.3 Repo info, tree and refs.** after M2.2
+- [x] **M2.3 Repo info, tree and refs.** after M2.2
   `/api/models/{repo}[/revision/{rev}]`, `/tree/{rev}[/{path}]` (unpaginated unless `limit`; cursor
   support), `/refs`. Online: upstream JSON with `xetHash` removed and URLs rewritten. Offline:
   synthesised from the manifest.
   Accept: offline `snapshot_download` of a pulled repo succeeds through the proxy.
+  Done: the tree listing matches huggingface.co field for field (0 differences over 36 files in two
+  real repos, including LFS pointer sizes); upstream repo info is saved per commit for offline replay.
 - [x] **M2.4 Pull-through.** after M2.3, M1.5
   On a miss, resolve and fetch from upstream, streaming to the client while writing to the store.
   One upstream fetch per blob no matter how many clients ask (single flight).
   Accept: two concurrent clients, one upstream request; client receives verified bytes.
   Done: bytes stream as they arrive, but the last byte is held back until the whole file is
   verified, so a client never receives a complete file that fails its hash.
-- [ ] **M2.5 Passthrough and paths-info.** after M2.3
+- [x] **M2.5 Passthrough and paths-info.** after M2.3
   `POST /paths-info/{rev}`, `/api/whoami-v2`, and a generic passthrough for other `/api/` routes, all
   with Xet stripping and URL rewriting.
 - [x] **M2.6 Error semantics and offline mode.** after M2.4
