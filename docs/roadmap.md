@@ -174,9 +174,14 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 
 ## M4 Trust
 
-- [ ] **M4.1 OMS export and verify.** after M1.4
+- [x] **M4.1 OMS export and verify.** after M1.4
   `weightkeep manifest export --oms` and `weightkeep manifest verify`; ECDSA P-256 keys; OMS conformance
   suite in CI.
+  Done as `weightkeep key generate` and `weightkeep manifest show|sign|verify`. Instead of the conformance
+  suite (which drives a directory-signing CLI), interop is tested both ways against the reference
+  implementation, model-signing 1.1.1: it verifies our bundle for real SmolLM2-135M weights and we verify
+  one it made. The spec's Appendix A root digest is inconsistent with its file digests; its test vector
+  is right, and we match the vector.
 - [ ] **M4.2 Registry repo and submission CI.** after M4.1, M3.1
   Separate `weightkeep-registry` repo: layout, submission checks (re-fetch Hub metadata, tier, gating,
   denylist), tuf-on-ci signing.

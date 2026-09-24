@@ -37,6 +37,7 @@ jobs:
             keep
             store
             manifest
+            oms
             fetch
             hfcache
             proxy

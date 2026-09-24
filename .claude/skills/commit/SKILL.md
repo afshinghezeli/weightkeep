@@ -48,7 +48,7 @@ Write the message from the diff and from what was done in this session (the why)
 ```
 
 - Types: feat, fix, perf, refactor, test, docs, build, ci, chore, revert.
-- Scopes: cli, config, hub, ids, keep, store, manifest, fetch, hfcache, proxy, policy, torrent,
+- Scopes: cli, config, hub, ids, keep, store, manifest, oms, fetch, hfcache, proxy, policy, torrent,
   registry, seed, testutil, deps, release. Omit when the change spans areas. A new package means a new
   scope: add it to `.github/workflows/pr-title.yml` and `docs/contributing/commits.md` first.
 - Breaking: `!` after the scope plus a `BREAKING CHANGE:` footer.
