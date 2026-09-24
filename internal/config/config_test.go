@@ -386,3 +386,12 @@ func TestMirrors(t *testing.T) {
 		t.Error("bad mirror accepted")
 	}
 }
+
+func TestRegistryConfig(t *testing.T) {
+	f := newFixture(t)
+	f.writeConfig("[registry]\nurl = \"https://registry.example/\"\nroot = \"~/wk-root.json\"\n")
+	c := f.load()
+	if c.RegistryURL != "https://registry.example" || c.RegistryRoot != filepath.Join(f.home, "wk-root.json") {
+		t.Errorf("registry = %q %q", c.RegistryURL, c.RegistryRoot)
+	}
+}
