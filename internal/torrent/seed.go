@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	g "github.com/anacrolix/generics"
@@ -128,16 +127,6 @@ type ClientConfig struct {
 type Client struct {
 	cl *torrent.Client
 	st *store.Store
-
-	mu       sync.Mutex
-	storages []storage.ClientImplCloser // closed with the client; anacrolix doesn't
-}
-
-func (c *Client) track(s storage.ClientImplCloser) storage.ClientImplCloser {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.storages = append(c.storages, s)
-	return s
 }
 
 // NewClient starts a BitTorrent client over st.
@@ -161,17 +150,9 @@ func NewClient(st *store.Store, cfg ClientConfig) (*Client, error) {
 	return &Client{cl: cl, st: st}, nil
 }
 
-// Close stops the client and closes the per-torrent storage it opened, which
-// releases file handles on blobs (Windows can't delete or move open files).
+// Close stops the client. The storages it uses hold no open files.
 func (c *Client) Close() error {
-	errs := c.cl.Close()
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, s := range c.storages {
-		errs = append(errs, s.Close())
-	}
-	c.storages = nil
-	return errors.Join(errs...)
+	return errors.Join(c.cl.Close()...)
 }
 
 // Addr is the address peers can reach this client on.
@@ -200,7 +181,7 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 		}
 		blobPath[f.Path] = c.st.Path(f.SHA256)
 	}
-	stor, err := newBlobStorage(&info, blobPath)
+	stor, err := newAlignedStorage(&info, func(p string) (string, bool) { b, ok := blobPath[p]; return b, ok }, false)
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +238,7 @@ func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.
 	default:
 		return nil, errors.New("no torrent or magnet link")
 	}
-	spec.Storage = c.track(storage.NewFileOpts(storage.NewFileClientOpts{
-		ClientBaseDir:   dir,
-		TorrentDirMaker: func(base string, _ *metainfo.Info, _ metainfo.Hash) string { return base },
-		PieceCompletion: storage.NewMapPieceCompletion(),
-	}))
+	spec.Storage = &lazyAligned{dir: dir}
 	t, _, err := c.cl.AddTorrentSpec(spec)
 	if err != nil {
 		return nil, err
@@ -316,6 +293,32 @@ func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.
 		case <-tick.C:
 		}
 	}
+}
+
+// lazyAligned builds a writable alignedStorage when anacrolix opens the
+// torrent, which for magnet links is only once the info has arrived.
+type lazyAligned struct{ dir string }
+
+func (l *lazyAligned) OpenTorrent(ctx context.Context, info *metainfo.Info, ih metainfo.Hash) (storage.TorrentImpl, error) {
+	root := filepath.Join(l.dir, info.BestName())
+	pathFor := func(p string) (string, bool) { return filepath.Join(root, filepath.FromSlash(p)), true }
+	s, err := newAlignedStorage(info, pathFor, true)
+	if err != nil {
+		return storage.TorrentImpl{}, err
+	}
+	// Empty files have no pieces, so nothing would ever write them.
+	for f := range info.UpvertedV1Files() {
+		if f.Length == 0 && f.Attr != "p" {
+			p, _ := pathFor(joinPath(f.BestPath()))
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				return storage.TorrentImpl{}, err
+			}
+			if err := os.WriteFile(p, nil, 0o644); err != nil {
+				return storage.TorrentImpl{}, err
+			}
+		}
+	}
+	return s.OpenTorrent(ctx, info, ih)
 }
 
 // Download fetches a whole torrent into dir. Used by tests.
