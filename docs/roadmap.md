@@ -146,8 +146,11 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: infohashes match libtorrent's for the same files (compat test with python-libtorrent).
   Done: v1 and v2 info hashes match libtorrent 2.1.1 for boundary-size files at three piece lengths
   and for the real SmolLM2-135M revision. libtorrent pads after the last file too; so do we.
-- [ ] **M3.3 Torrent client over the store.** after M3.2
+- [x] **M3.3 Torrent client over the store.** after M3.2
   anacrolix client with storage mapped onto `blobs/` and `tmp/`; piece completion in our SQLite.
+  Done: seeding maps torrent files onto blobs (no copies) and trusts store verification for piece
+  completion. libtorrent downloads a revision from it. Seeds v1 torrents with BEP 47 padding for now
+  (ADR 0010): anacrolix and libtorrent disagree on hybrid piece lengths.
 - [ ] **M3.4 `seed`.** after M3.1, M3.3
   Seed tier A by default, B1/B2 only with per-model opt-in; disk budget, upload rate limit, monthly cap.
   Accept: a tier C revision is refused with a message naming the rule.
