@@ -9,14 +9,16 @@ paths:
 
 # Licence policy
 
-Decision record: `docs/adr/0007-licence-tiers.md`. The licence-by-licence catalogue with sources and
+Decision records: `docs/adr/0007-licence-tiers.md`, amended by
+`docs/adr/0009-licence-texts-for-repos-without-a-licence-file.md`. Code: `internal/policy`. The licence-by-licence catalogue with sources and
 the legal background is in [reference.md](reference.md). It is research, not legal advice; items marked
 [UNCERTAIN] there need a lawyer before behaviour depends on them.
 
 ## Invariants (never relax without a new ADR)
 
 - Gated (`gated: auto`, `gated: manual`, `true`) or private repos are tier C. Always.
-- Missing licence file at the pinned commit is tier C, whatever the tag says.
+- Missing licence file: tier A licences with a bundled SPDX text (`internal/policy/texts`) stay A and
+  weightkeep attaches the text when sharing (ADR 0009); every other licence is C without its own file.
 - Licence text that doesn't match the declared tag is tier C.
 - Denylist hit is tier C.
 - A model inherits a stricter tier from its `base_model`.
@@ -29,7 +31,7 @@ the legal background is in [reference.md](reference.md). It is research, not leg
 | Tier | Share | Examples |
 | --- | --- | --- |
 | A | by default, LICENSE bundled | apache-2.0, mit, bsd-*, isc, cc0-1.0, cc-by-4.0, cc-by-sa-4.0, openmdw, mpl-2.0 |
-| B1 | opt-in per model; LICENSE, NOTICE, use policy bundled; verbatim only | llama3.x, llama4, gemma (1-3), openrail family, qwen licence, deepseek v1, falcon, nvidia-open-model-license, stabilityai-community, cc-by-nd-4.0 |
+| B1 | opt-in per model; LICENSE, NOTICE, use policy bundled; verbatim only | llama3.x, llama4, gemma (1-3), openrail family, qwen licence, deepseek v1, falcon, nvidia-open-model-license, stabilityai-community, cc-by-nd-4.0, GPL/LGPL/AGPL (what "source" means for weights is unsettled) |
 | B2 | as B1, plus operator attests non-commercial | cc-by-nc-*, mistral mrl/mnpl, flux-1-dev-nc, qwen-research |
 | C | never | gated, private, unknown, missing, denylisted, research licences needing individual acceptance |
 

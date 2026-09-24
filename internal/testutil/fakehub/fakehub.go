@@ -64,7 +64,9 @@ type Repo struct {
 	Files    []File
 	Gated    string // "", "auto" or "manual"
 	License  string
-	Disabled bool
+	// BaseModel is cardData.base_model.
+	BaseModel string
+	Disabled  bool
 	// Allowed tokens for gated repos.
 	Tokens []string
 }
@@ -397,8 +399,15 @@ func (h *Hub) writeInfo(w http.ResponseWriter, repo *Repo, commit string) {
 		"siblings":     siblings,
 		"tags":         []string{"safetensors"},
 	}
+	card := map[string]any{}
 	if repo.License != "" {
-		info["cardData"] = map[string]any{"license": repo.License}
+		card["license"] = repo.License
+	}
+	if repo.BaseModel != "" {
+		card["base_model"] = repo.BaseModel
+	}
+	if len(card) > 0 {
+		info["cardData"] = card
 	}
 	writeJSON(w, info)
 }

@@ -58,6 +58,7 @@ through the same HTTP API the Hub speaks.
 | `weightkeep registry sync` | Fetch the signed community registry (TUF). |
 | `weightkeep rm REPO@REV` | Forget a revision (its blobs go at the next `gc`). |
 | `weightkeep gc` | Drop unreferenced blobs, stale locks and abandoned partials. |
+| `weightkeep license REPO` | Show the sharing tier of a kept revision and why. |
 | `weightkeep env` | Print resolved paths, upstream and token source (never the token). |
 
 ## Architecture
@@ -191,13 +192,13 @@ Four tiers, decided from the licence at the pinned commit, never from the tag al
 
 | Tier | Examples | Keep privately | Seed |
 | --- | --- | --- | --- |
-| A, permissive | Apache-2.0, MIT, BSD, CC-BY, CC0 | yes | by default |
+| A, permissive | Apache-2.0, MIT, BSD, CC-BY, CC0 | yes | by default; weightkeep supplies the licence text if the repo has none (ADR 0009) |
 | B1, conditions | Llama 3.x/4 community, Gemma ToU, OpenRAIL, NVIDIA OML | yes | opt-in per model, licence and notice files bundled |
 | B2, non-commercial | CC-BY-NC, Mistral MRL/MNPL | yes | opt-in, operator attests non-commercial use |
 | C, never | gated, private, unknown, denylisted | yes (if you can download it) | never |
 
 Keeping a private copy of something you were allowed to download is always allowed; the tool does not
-police that. It only refuses to *share*. See [ADR 0007](adr/0007-licence-tiers.md).
+police that. It only refuses to *share*. See [ADR 0007](adr/0007-licence-tiers.md) and [ADR 0009](adr/0009-licence-texts-for-repos-without-a-licence-file.md).
 
 ## Milestones
 
