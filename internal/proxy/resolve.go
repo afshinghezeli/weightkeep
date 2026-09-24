@@ -22,7 +22,7 @@ import (
 func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request, rt route) {
 	m, err := s.revision(r.Context(), rt.repo, rt.rev)
 	if err != nil {
-		writeError(w, err, "")
+		writeError(w, err)
 		return
 	}
 	h := w.Header()
@@ -80,7 +80,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request, rt route)
 func (s *Server) serveBlob(w http.ResponseWriter, r *http.Request, f manifest.File) {
 	file, err := s.k.Store.Open(f.SHA256)
 	if err != nil {
-		writeError(w, err, "")
+		writeError(w, err)
 		return
 	}
 	defer file.Close()
@@ -190,7 +190,7 @@ func (s *Server) serveFlight(w http.ResponseWriter, r *http.Request, t fetch.Tar
 	// early failure (upstream gone, gated) can still become a proper error.
 	if err := waitFor(r.Context(), f, start+1, t.Size); err != nil {
 		if r.Context().Err() == nil {
-			writeError(w, err, "")
+			writeError(w, err)
 		}
 		return
 	}
@@ -321,11 +321,8 @@ func writeUnavailable(w http.ResponseWriter, msg string) {
 // writeError maps an error to the response a Hub client understands.
 // Upstream 4xx answers pass through with their codes; anything that means
 // "couldn't reach the Hub" is a 504, never a not-found.
-func writeError(w http.ResponseWriter, err error, commit string) {
+func writeError(w http.ResponseWriter, err error) {
 	h := w.Header()
-	if commit != "" {
-		h.Set("X-Repo-Commit", commit)
-	}
 	var he *hub.HTTPError
 	switch {
 	case errors.As(err, &he) && he.Status >= 400 && he.Status < 500 && he.Status != http.StatusTooManyRequests && he.Status != http.StatusRequestTimeout:
@@ -335,7 +332,7 @@ func writeError(w http.ResponseWriter, err error, commit string) {
 		if he.Message != "" {
 			h.Set("X-Error-Message", he.Message)
 		}
-		if he.Commit != "" && commit == "" {
+		if he.Commit != "" {
 			h.Set("X-Repo-Commit", he.Commit)
 		}
 		status := he.Status
