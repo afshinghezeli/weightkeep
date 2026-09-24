@@ -110,7 +110,12 @@ What counts as breaking:
 
 1. release-please keeps a PR named `chore(main): release X.Y.Z` up to date.
 2. Before merging it, edit `CHANGELOG.md` in that PR so it reads well for users. Group related
-   entries, drop noise, add a one-paragraph summary at the top of the release.
-3. Merge. The tag triggers GoReleaser, which publishes binaries, checksums, the Homebrew formula and
-   provenance attestations.
-4. Check the GitHub release page and edit the notes if needed.
+   entries, drop noise, add a one-paragraph summary at the top of the release. Do this last: every
+   push to `main` regenerates the PR and overwrites manual edits.
+3. Merge with `gh pr merge <n> --squash --admin`. GitHub doesn't run workflows for pull requests
+   opened with the default Actions token, so the release PR never gets its required checks. It only
+   touches `CHANGELOG.md` and `.release-please-manifest.json`, and everything it releases already
+   passed CI on `main`. (A GitHub App token for release-please would remove this step.)
+4. The merge creates the tag and the GitHub release; the same workflow run builds the binaries with
+   GoReleaser and attests them.
+5. Check the GitHub release page and edit the notes if needed.
