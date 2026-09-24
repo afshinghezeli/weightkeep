@@ -130,9 +130,10 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 
 ## M3 Share (0.2.0)
 
-- [ ] **M3.0 Spike: web seeds against the Hub.** after M1.3
+- [x] **M3.0 Spike: web seeds against the Hub.** after M1.3
   anacrolix web seed peer fetching a commit-pinned repo for over an hour (signed URL expiry, relative
   redirects, token only to huggingface.co, throughput). Result recorded in ADR 0005.
+  Done: 76 minutes at 60 KB/s from web seeds only, complete and verified, no errors.
 - [x] **M3.1 Licence detection.** after M1.6
   At pull time record `cardData.license`, `license_name`, `license_link`, `gated`, LICENSE file path
   and SHA-256, `base_model`. Compute the tier from `internal/policy` data.

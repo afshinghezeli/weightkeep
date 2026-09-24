@@ -19,7 +19,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -52,6 +51,7 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	n := t.counts[key]
 	t.mu.Unlock()
 	if n <= 3 || n%50 == 0 {
+		//nolint:gosec // G706: logs URLs this tool built itself
 		log.Printf("+%s %s %s%s range=%q -> %s (#%d)", time.Since(t.start).Round(time.Second), req.Method,
 			req.URL.Host, trim(req.URL.Path), req.Header.Get("Range"), status, n)
 	}
@@ -82,6 +82,12 @@ func (b *slowBody) Read(p []byte) (int, error) {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	src := flag.String("src", "", "directory with the revision's files (from weightkeep export --to)")
 	repo := flag.String("repo", "", "org/name")
 	commit := flag.String("commit", "", "40-hex commit")
@@ -90,12 +96,12 @@ func main() {
 
 	info := metainfo.Info{PieceLength: 4 << 20}
 	if err := info.BuildFromFilePath(*src); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	info.Name = *commit
 	infoBytes, err := bencodeInfo(info)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	mi := metainfo.MetaInfo{InfoBytes: infoBytes, UrlList: []string{"https://huggingface.co/" + *repo + "/resolve/"}}
 	log.Printf("torrent %s: %d files, %d bytes, %d pieces, infohash %s", info.Name, len(info.Files), info.TotalLength(),
@@ -112,12 +118,12 @@ func main() {
 	cfg.WebTransport = lt
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer cl.Close()
 	t, err := cl.AddTorrent(&mi)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	<-t.GotInfo()
 	t.DownloadAll()
@@ -133,9 +139,7 @@ func main() {
 	}
 	// Every piece was checked against the torrent's SHA-1 piece hashes, and
 	// the files match the Hub's since the torrent was built from verified blobs.
-	if err := os.WriteFile(filepath.Join(os.TempDir(), "webseed-spike.ok"), []byte("ok"), 0o644); err != nil {
-		log.Print(err)
-	}
+	return nil
 }
 
 func bencodeInfo(info metainfo.Info) ([]byte, error) {
