@@ -37,8 +37,8 @@ explaining what users must do. In 0.x that bumps the minor version.
 Use the package or area touched. One scope; if a change spans several, pick the one users would care
 about, or leave the scope out.
 
-`cli`, `config`, `hub`, `store`, `manifest`, `fetch`, `hfcache`, `proxy`, `policy`, `torrent`,
-`registry`, `seed`, `deps`, `release`. (`docs` and `ci` are types, not scopes.)
+`cli`, `config`, `hub`, `ids`, `keep`, `store`, `manifest`, `fetch`, `hfcache`, `proxy`, `policy`,
+`torrent`, `registry`, `seed`, `testutil`, `deps`, `release`. (`docs` and `ci` are types, not scopes.)
 
 ### Summary line
 
