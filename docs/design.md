@@ -164,8 +164,11 @@ A file is identified by SHA-256 and size. The fetch scheduler asks each source f
 
 1. Local store.
 2. The Hub (`/resolve/<commit>/<path>`, following the CDN redirect, never caching the signed URL).
-3. Peers in the BitTorrent swarm for that revision.
-4. Configured mirrors: plain HTTP bases and IPFS gateways.
+3. Configured mirrors (`mirrors` in the config): anything that speaks the Hub API, including another
+   weightkeep node's `serve`. Tried when the Hub is unreachable or no longer has the repo or revision,
+   never when it answers "gated". Mirrors never receive the Hub token.
+4. Peers in the BitTorrent swarm, with `pull --torrent`: the torrent's info dict carries the
+   manifest, so a magnet link is enough to verify everything.
 
 Ranges are aligned to torrent pieces so every piece can be checked against the v2 piece layer before it
 is written, whichever source it came from. The final SHA-256 over the whole file is the acceptance test.

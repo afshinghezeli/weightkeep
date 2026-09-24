@@ -243,12 +243,16 @@ func (s *Server) directBlob(w http.ResponseWriter, r *http.Request, sum string) 
 		writeError(w, err)
 		return
 	}
+	upstream := ""
+	if m, err := manifest.Load(r.Context(), s.k.Store, loc.Repo, loc.Commit); err == nil {
+		upstream = m.Upstream
+	}
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Accept-Ranges", "bytes")
 	s.serveFlight(w, r, fetch.Target{
 		Repo: repo, Commit: loc.Commit, Path: loc.File.Path, Size: loc.File.Size,
 		SHA256: sum, TreeOID: loc.File.GitSHA1, LFS: true,
-	})
+	}, s.k.ClientFor(upstream))
 }
 
 func writeFileAtomic(path string, data []byte) error {

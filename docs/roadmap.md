@@ -164,11 +164,13 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: with upstream blocked, a second node pulls a revision from the first node's seed.
   Done: tested in-process and with two real nodes: node B, with no Hub, pulled SmolLM2-135M from node A
   by magnet link, verified it, and served it to huggingface_hub offline.
-- [ ] **M3.6 Mirror fallback.** after M3.5
+- [x] **M3.6 Mirror fallback.** after M3.5
   A `mirrors` list in the config (other weightkeep nodes, hf-mirror.com, an IPFS gateway speaking the
   Hub API) tried in order when the upstream is unreachable or no longer has the repo.
   Accept: with the primary upstream returning 404 for a repo, `pull` gets it from a mirror and records
   which one.
+  Done: also when the primary is unreachable; never for gated repos. Mirrors get no Hub token. Tested
+  with one weightkeep node's `serve` as another's mirror.
 
 ## M4 Trust
 

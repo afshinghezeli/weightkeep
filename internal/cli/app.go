@@ -38,12 +38,21 @@ func (d deps) openApp(ctx context.Context) (*app, error) {
 		st.Close()
 		return nil, err
 	}
+	var mirrors []*hub.Client
+	for _, m := range cfg.Mirrors {
+		mc, err := hub.New(m, hub.Options{UserAgent: "weightkeep/" + version.Get().Version})
+		if err != nil {
+			st.Close()
+			return nil, err
+		}
+		mirrors = append(mirrors, mc)
+	}
 	f := &fetch.Fetcher{Store: st, Hub: client}
 	return &app{
 		cfg:    cfg,
 		store:  st,
 		hub:    client,
-		keeper: &keep.Keeper{Store: st, Hub: client, Fetcher: f},
+		keeper: &keep.Keeper{Store: st, Hub: client, Fetcher: f, Mirrors: mirrors},
 	}, nil
 }
 

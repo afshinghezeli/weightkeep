@@ -74,7 +74,7 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request, rt route)
 	if rt.repo.ID != m.Repo.ID {
 		target.Repo.ID = m.Repo.ID // canonical id
 	}
-	s.serveFlight(w, r, target)
+	s.serveFlight(w, r, target, s.k.ClientFor(m.Upstream))
 }
 
 func (s *Server) serveBlob(w http.ResponseWriter, r *http.Request, f manifest.File) {
@@ -135,8 +135,9 @@ func (f *flight) update(written int64, done bool, err error) {
 	f.changed = make(chan struct{})
 }
 
-// join returns the flight for t, starting the download if nobody has.
-func (s *Server) join(t fetch.Target) *flight {
+// join returns the flight for t, starting the download from client if
+// nobody has.
+func (s *Server) join(t fetch.Target, client *hub.Client) *flight {
 	fl := s.flights
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
@@ -151,6 +152,7 @@ func (s *Server) join(t fetch.Target) *flight {
 	}
 	fl.m[t.SHA256] = f
 	fetcher := *s.k.Fetcher
+	fetcher.Hub = client
 	fetcher.Events = func(e fetch.Event) {
 		switch e.State {
 		case fetch.Started, fetch.Progress, fetch.Retrying:
@@ -177,14 +179,14 @@ func (s *Server) join(t fetch.Target) *flight {
 // verified the whole file. A client therefore never ends up with a complete
 // file whose hash is wrong: if verification fails the connection is cut and
 // the client sees a short read.
-func (s *Server) serveFlight(w http.ResponseWriter, r *http.Request, t fetch.Target) {
+func (s *Server) serveFlight(w http.ResponseWriter, r *http.Request, t fetch.Target, client *hub.Client) {
 	start, end, status, ok := parseRange(r.Header.Get("Range"), t.Size)
 	if !ok {
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", t.Size))
 		http.Error(w, "range not satisfiable", http.StatusRequestedRangeNotSatisfiable)
 		return
 	}
-	f := s.join(t)
+	f := s.join(t, client)
 
 	// Don't commit to a status until the first byte we need exists, so an
 	// early failure (upstream gone, gated) can still become a proper error.
