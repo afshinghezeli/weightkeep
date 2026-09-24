@@ -295,3 +295,27 @@ func LoadInfo(st *store.Store, repo Repo, commit string) ([]byte, error) {
 	}
 	return data, err
 }
+
+// Location is one place a blob appears.
+type Location struct {
+	Repo   Repo
+	Commit string
+	File   File
+}
+
+// FindBySHA256 returns a kept revision file whose content has the given
+// SHA-256, most recently fetched first.
+func FindBySHA256(ctx context.Context, st *store.Store, sum string) (Location, error) {
+	var loc Location
+	var lfs int
+	err := st.DB().QueryRowContext(ctx, `
+		SELECT f.repo_type, f.repo_id, f.commit_sha, f.path, f.size, f.sha256, f.git_sha1, f.lfs
+		FROM files f JOIN revisions r USING (repo_type, repo_id, commit_sha)
+		WHERE f.sha256 = ? ORDER BY r.fetched_at DESC LIMIT 1`, sum).
+		Scan(&loc.Repo.Type, &loc.Repo.ID, &loc.Commit, &loc.File.Path, &loc.File.Size, &loc.File.SHA256, &loc.File.GitSHA1, &lfs)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Location{}, fmt.Errorf("blob %s: %w", sum, ErrNotFound)
+	}
+	loc.File.LFS = lfs != 0
+	return loc, err
+}
