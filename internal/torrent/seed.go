@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent"
@@ -101,6 +102,16 @@ type ClientConfig struct {
 type Client struct {
 	cl *torrent.Client
 	st *store.Store
+
+	mu       sync.Mutex
+	storages []storage.ClientImplCloser // closed with the client; anacrolix doesn't
+}
+
+func (c *Client) track(s storage.ClientImplCloser) storage.ClientImplCloser {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.storages = append(c.storages, s)
+	return s
 }
 
 // NewClient starts a BitTorrent client over st.
@@ -127,9 +138,16 @@ func NewClient(st *store.Store, cfg ClientConfig) (*Client, error) {
 	return &Client{cl: cl, st: st}, nil
 }
 
-// Close stops the client.
+// Close stops the client and closes the per-torrent storage it opened, which
+// releases file handles on blobs (Windows can't delete or move open files).
 func (c *Client) Close() error {
 	errs := c.cl.Close()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, s := range c.storages {
+		errs = append(errs, s.Close())
+	}
+	c.storages = nil
 	return errors.Join(errs...)
 }
 
@@ -183,7 +201,7 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 			}
 		}
 	}
-	stor := storage.NewFileOpts(storage.NewFileClientOpts{
+	stor := c.track(storage.NewFileOpts(storage.NewFileClientOpts{
 		ClientBaseDir:   root,
 		TorrentDirMaker: func(string, *metainfo.Info, metainfo.Hash) string { return root },
 		FilePathMaker: func(o storage.FilePathMakerOpts) string {
@@ -194,7 +212,7 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 			return blobRel[p]
 		},
 		PieceCompletion: completion,
-	})
+	}))
 
 	opts := torrent.AddTorrentOpts{
 		InfoHash:                 ih,
@@ -254,11 +272,11 @@ func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peer
 	if err != nil {
 		return nil, err
 	}
-	spec.Storage = storage.NewFileOpts(storage.NewFileClientOpts{
+	spec.Storage = c.track(storage.NewFileOpts(storage.NewFileClientOpts{
 		ClientBaseDir:   dir,
 		TorrentDirMaker: func(base string, _ *metainfo.Info, _ metainfo.Hash) string { return base },
 		PieceCompletion: storage.NewMapPieceCompletion(),
-	})
+	}))
 	t, _, err := c.cl.AddTorrentSpec(spec)
 	if err != nil {
 		return nil, err
