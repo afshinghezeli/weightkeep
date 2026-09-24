@@ -197,3 +197,59 @@ func (a *app) useDenylist(cmd *cobra.Command, sync, required bool) error {
 	a.keeper.Deny = deny
 	return nil
 }
+
+// useRegistry lets pull check upstream against the registry. The registry
+// is synced first if the local copy is missing or expired; if that fails,
+// pull goes ahead without the checks.
+func (a *app) useRegistry(cmd *cobra.Command) {
+	rc, err := a.openRegistry()
+	if err != nil {
+		cmd.PrintErrf("warning: registry checks skipped: %v\n", err)
+		return
+	}
+	if rc == nil {
+		return
+	}
+	if _, err := rc.Size(); err != nil {
+		if err := rc.Sync(); err != nil {
+			cmd.PrintErrf("warning: registry checks skipped: %v\n", err)
+			return
+		}
+	}
+	a.keeper.Registry = registryView{rc}
+}
+
+// registryView adapts the registry client to keep.Registry.
+type registryView struct{ c *registry.Client }
+
+func (v registryView) Record(repo manifest.Repo, commit string) (*manifest.Manifest, string, bool, error) {
+	r, err := v.c.Record(repo, commit)
+	if errors.Is(err, registry.ErrNotListed) {
+		return nil, "", false, nil
+	}
+	if err != nil {
+		return nil, "", false, err
+	}
+	return r.Manifest, r.Magnet, true, nil
+}
+
+func (v registryView) Latest(repo manifest.Repo) (*manifest.Manifest, string, bool, error) {
+	commits, err := v.c.Commits(repo)
+	if err != nil {
+		return nil, "", false, err
+	}
+	var latest *registry.Record
+	for _, c := range commits {
+		r, err := v.c.Record(repo, c)
+		if err != nil {
+			return nil, "", false, err
+		}
+		if latest == nil || r.Added.After(latest.Added) {
+			latest = r
+		}
+	}
+	if latest == nil {
+		return nil, "", false, nil
+	}
+	return latest.Manifest, latest.Magnet, true, nil
+}

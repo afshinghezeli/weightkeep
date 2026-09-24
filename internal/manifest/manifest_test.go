@@ -192,3 +192,33 @@ func TestRefs(t *testing.T) {
 		t.Errorf("ResolveRef(commit) = %s, %v", commit, err)
 	}
 }
+
+func TestDiff(t *testing.T) {
+	base := func() *Manifest {
+		return &Manifest{Files: []File{
+			{Path: "a", Size: 1, GitSHA1: "g1", SHA256: "s1"},
+			{Path: "b", Size: 2, GitSHA1: "g2", SHA256: "s2", LFS: true},
+		}}
+	}
+	if d := Diff(base(), base()); len(d) != 0 {
+		t.Errorf("identical: %v", d)
+	}
+	noSHA := base()
+	noSHA.Files[0].SHA256 = "" // not downloaded yet
+	if d := Diff(base(), noSHA); len(d) != 0 {
+		t.Errorf("missing sha256 on one side: %v", d)
+	}
+	for name, change := range map[string]func(m *Manifest){
+		"size":    func(m *Manifest) { m.Files[1].Size = 3 },
+		"git id":  func(m *Manifest) { m.Files[0].GitSHA1 = "gx" },
+		"sha256":  func(m *Manifest) { m.Files[1].SHA256 = "sx" },
+		"missing": func(m *Manifest) { m.Files = m.Files[:1] },
+		"extra":   func(m *Manifest) { m.Files = append(m.Files, File{Path: "c"}) },
+	} {
+		got := base()
+		change(got)
+		if d := Diff(base(), got); len(d) != 1 {
+			t.Errorf("%s: %v", name, d)
+		}
+	}
+}

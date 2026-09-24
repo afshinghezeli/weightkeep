@@ -203,9 +203,15 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   blob digest. Checked with a real registry denylisting prajjwal1/bert-tiny: `seed` skipped it with
   the entry's reason. The serve refusal is covered by tests only; inbound LAN traffic was blocked on
   the test machine.
-- [ ] **M4.5 Namespace checks.** after M4.3
+- [x] **M4.5 Namespace checks.** after M4.3
   On pull, compare against registry manifests; warn loudly when an `org/name` now serves different
   content for a commit or when a repo was deleted and re-created.
+  Done: a commit whose files differ from the registry's record is refused rather than warned about,
+  since git ids cover the content and a difference means the upstream (usually a mirror) is lying. A
+  registry commit the upstream no longer has gives a warning about rewritten history or a re-created
+  repo. Added: when neither the Hub nor a mirror has a revision, `pull` fetches the registry's magnet
+  link, and the torrent's manifest must match the record. Checked for real: with its upstream pointed
+  at a closed port, a second node pulled prajjwal1/bert-tiny by name from the first node's seed.
 
 ## M5 Launch
 

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/afshinghezeli/weightkeep/internal/manifest"
 	"github.com/afshinghezeli/weightkeep/internal/store"
@@ -21,6 +22,9 @@ type TorrentPull struct {
 	Peers  []net.Addr
 	// Want, if set, must match the revision the torrent carries.
 	Want *manifest.Repo
+	// Expect, if set, is the manifest the torrent's must match, for
+	// example the registry's record the magnet link came from.
+	Expect *manifest.Manifest
 }
 
 // PullTorrent keeps a revision fetched from the swarm instead of the Hub.
@@ -39,6 +43,13 @@ func (k *Keeper) PullTorrent(ctx context.Context, req TorrentPull) (*PullResult,
 		Accept: func(m *manifest.Manifest) error {
 			if reason, ok := k.Denied(m); ok {
 				return fmt.Errorf("%s@%s is on the registry's denylist (%s); weightkeep won't fetch it from the swarm", m.Repo, m.Commit[:12], reason)
+			}
+			if e := req.Expect; e != nil {
+				diff := manifest.Diff(e, m)
+				if m.Repo != e.Repo || m.Commit != e.Commit || len(diff) > 0 {
+					return fmt.Errorf("%w: the torrent carries %s@%s, which doesn't match the expected %s@%s: %s",
+						ErrRegistryMismatch, m.Repo, m.Commit[:12], e.Repo, e.Commit[:12], strings.Join(diff, "; "))
+				}
 			}
 			return nil
 		},
