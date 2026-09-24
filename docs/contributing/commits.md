@@ -108,7 +108,7 @@ What counts as breaking:
 
 ## Releasing
 
-1. release-please keeps a PR named `chore(main): release X.Y.Z` up to date.
+1. release-please keeps a PR named `chore(release): X.Y.Z` up to date.
 2. Before merging it, edit `CHANGELOG.md` in that PR so it reads well for users. Group related
    entries, drop noise, add a one-paragraph summary at the top of the release. Do this last: every
    push to `main` regenerates the PR and overwrites manual edits.
