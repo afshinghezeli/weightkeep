@@ -124,7 +124,7 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: `ollama pull 127.0.0.1:8700/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M --insecure` works.
   Done: blob GETs answer 200 with Location, because Ollama follows same-host redirects and needs the
   last response to carry one. Covered by `test/compat/test_ollama.py` with real Ollama 0.34.
-- [ ] **M2.9 README and 0.1.0.** after M2.7, M0.5
+- [x] **M2.9 README and 0.1.0.** after M2.7, M0.5
   README with install, quick start, how it works, comparison, limits, FAQ (licences first). Opening and
   "why" left for the maintainer to write. Release 0.1.0.
 
@@ -133,10 +133,13 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 - [ ] **M3.0 Spike: web seeds against the Hub.** after M1.3
   anacrolix web seed peer fetching a commit-pinned repo for over an hour (signed URL expiry, relative
   redirects, token only to huggingface.co, throughput). Result recorded in ADR 0005.
-- [ ] **M3.1 Licence detection.** after M1.6
+- [x] **M3.1 Licence detection.** after M1.6
   At pull time record `cardData.license`, `license_name`, `license_link`, `gated`, LICENSE file path
   and SHA-256, `base_model`. Compute the tier from `internal/policy` data.
   Accept: table test per licence id in the licence-policy reference; gated always C.
+  Done: most permissive repos have no LICENSE file, so ADR 0009 amends 0007: weightkeep bundles the
+  SPDX texts of tier A licences and attaches them when sharing. `weightkeep license REPO` explains the
+  decision.
 - [ ] **M3.2 Hybrid torrent builder.** after M3.0
   One pass computes v1 SHA-1 pieces (with BEP 47 padding), v2 merkle roots and piece layers, and plain
   SHA-256. `info.name` = commit, `url-list` = Hub resolve base.
