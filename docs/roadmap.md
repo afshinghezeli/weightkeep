@@ -112,11 +112,13 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 - [x] **M2.6 Error semantics and offline mode.** after M2.4
   Upstream timeout/5xx → 504; upstream 4xx passed through verbatim; `--offline` never contacts upstream.
   Accept: tests for each row of the error table in the hf-protocol skill.
-- [ ] **M2.7 Client compatibility suite.** after M2.6
+- [x] **M2.7 Client compatibility suite.** after M2.6
   `test/compat/` run by `make compat` and a CI job: huggingface_hub `snapshot_download` and
   `hf_hub_download` with `hf_xet` installed (no Xet traffic allowed), transformers offline load,
   text-generation-webui style cursor pagination, llama.cpp `-hf` when the binary is available.
   Accept: suite green locally and in CI.
+  Done: 7 tests. llama.cpp is exercised through `llama-completion -hf`; the text-generation-webui
+  downloader is fetched from a pinned commit at test time (it's AGPL) and its `--check` must pass.
 - [ ] **M2.8 Ollama routes.** after M2.7
   `/v2/{ns}/{repo}/manifests/{tag}` and `/v2/{ns}/{repo}/blobs/sha256:{hex}` per the hf-protocol notes.
   Accept: `ollama pull 127.0.0.1:8700/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M --insecure` works.

@@ -76,3 +76,26 @@ jobs:
           go-version: stable
       - name: network tests
         run: go test -timeout 10m -run 'Real' ./...
+
+  # Real clients (huggingface_hub, transformers, llama.cpp, the
+  # text-generation-webui downloader) against `weightkeep serve`, which
+  # proxies huggingface.co. Not required, for the same reason as `network`.
+  compat:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: install llama.cpp
+        run: brew install llama.cpp
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      - name: build
+        run: make build
+      - name: compatibility tests
+        run: ./test/compat/run.sh -v
