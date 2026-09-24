@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/afshinghezeli/weightkeep/internal/ids"
@@ -40,6 +41,14 @@ type Manifest struct {
 type Repo struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
+}
+
+// Name is the part of the id after the namespace.
+func (r Repo) Name() string {
+	if _, name, ok := strings.Cut(r.ID, "/"); ok {
+		return name
+	}
+	return r.ID
 }
 
 func (r Repo) String() string {
