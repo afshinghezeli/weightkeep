@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: proposed (amended by 0010)
 date: 2026-09-24
 ---
 
