@@ -32,6 +32,9 @@ type Config struct {
 	ConfigFile string
 	// Upstream is the Hub weightkeep fetches from, without a trailing slash.
 	Upstream string
+	// Mirrors are tried in order when the upstream can't be reached or no
+	// longer has a repo: other weightkeep nodes, or public Hub mirrors.
+	Mirrors []string
 	// ServeAddr is the default listen address for `weightkeep serve`.
 	ServeAddr string
 
@@ -63,8 +66,9 @@ func OSEnv() (Env, error) {
 
 // fileConfig is the on-disk format. Unknown keys are an error.
 type fileConfig struct {
-	Home     string `toml:"home"`
-	Upstream string `toml:"upstream"`
+	Home     string   `toml:"home"`
+	Upstream string   `toml:"upstream"`
+	Mirrors  []string `toml:"mirrors"`
 	Serve    struct {
 		Addr string `toml:"addr"`
 	} `toml:"serve"`
@@ -89,6 +93,21 @@ func Load(env Env) (*Config, error) {
 	upstream := firstNonEmpty(env.Getenv("WEIGHTKEEP_UPSTREAM"), fc.Upstream, DefaultUpstream)
 	if c.Upstream, err = normalizeUpstream(upstream); err != nil {
 		return nil, err
+	}
+
+	mirrors := fc.Mirrors
+	if v := env.Getenv("WEIGHTKEEP_MIRRORS"); v != "" {
+		mirrors = strings.Split(v, ",")
+	}
+	for _, m := range mirrors {
+		if m = strings.TrimSpace(m); m == "" {
+			continue
+		}
+		u, err := normalizeUpstream(m)
+		if err != nil {
+			return nil, fmt.Errorf("mirror: %w", err)
+		}
+		c.Mirrors = append(c.Mirrors, u)
 	}
 
 	c.ServeAddr = firstNonEmpty(env.Getenv("WEIGHTKEEP_ADDR"), fc.Serve.Addr, DefaultServeAddr)

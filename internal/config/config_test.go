@@ -369,3 +369,20 @@ func writeFile(t *testing.T, path, contents string) {
 		t.Fatal(err)
 	}
 }
+
+func TestMirrors(t *testing.T) {
+	f := newFixture(t)
+	f.writeConfig("mirrors = [\"http://nas.local:8700/\", \"https://hf-mirror.com\"]\n")
+	c := f.load()
+	if len(c.Mirrors) != 2 || c.Mirrors[0] != "http://nas.local:8700" {
+		t.Errorf("Mirrors from file = %v", c.Mirrors)
+	}
+	f.set("WEIGHTKEEP_MIRRORS", "http://a.example, http://b.example")
+	if c := f.load(); len(c.Mirrors) != 2 || c.Mirrors[1] != "http://b.example" {
+		t.Errorf("Mirrors from env = %v", c.Mirrors)
+	}
+	f.set("WEIGHTKEEP_MIRRORS", "ftp://nope")
+	if _, err := Load(f.env()); err == nil {
+		t.Error("bad mirror accepted")
+	}
+}

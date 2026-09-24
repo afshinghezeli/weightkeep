@@ -23,7 +23,64 @@ type Keeper struct {
 	Store   *store.Store
 	Hub     *hub.Client
 	Fetcher *fetch.Fetcher
+	// Mirrors are tried in order when Hub can't be reached or no longer has
+	// a repo or revision (see fallbackOK).
+	Mirrors []*hub.Client
 	Now     func() time.Time
+}
+
+// ClientFor returns the client for the upstream a manifest came from, so
+// its files are fetched from the same place. It falls back to Hub.
+func (k *Keeper) ClientFor(upstream string) *hub.Client {
+	for _, m := range k.Mirrors {
+		if m.Base() == upstream {
+			return m
+		}
+	}
+	return k.Hub
+}
+
+// fetcherFor is the fetcher bound to client.
+func (k *Keeper) fetcherFor(client *hub.Client) *fetch.Fetcher {
+	if client == k.Hub {
+		return k.Fetcher
+	}
+	f := *k.Fetcher
+	f.Hub = client
+	return &f
+}
+
+// fallbackOK says whether a failed lookup on the primary upstream should be
+// retried on the mirrors: the upstream is down, or the repo, revision or
+// file is gone. A gated repo or a rejected token is never retried
+// elsewhere: that would get around the author's access agreement.
+func fallbackOK(err error) bool {
+	switch {
+	case errors.Is(err, hub.ErrGated), errors.Is(err, hub.ErrUnauthorized):
+		return false
+	case hub.Retryable(err),
+		errors.Is(err, hub.ErrRepoNotFound),
+		errors.Is(err, hub.ErrRevisionNotFound),
+		errors.Is(err, hub.ErrDisabled):
+		return true
+	}
+	return false
+}
+
+// repoInfo asks the primary upstream, then the mirrors, and returns the
+// answer with the client that gave it.
+func (k *Keeper) repoInfo(ctx context.Context, repo hub.Repo, rev string) (*hub.RepoInfo, *hub.Client, error) {
+	info, err := k.Hub.RepoInfo(ctx, repo, rev)
+	if err == nil || !fallbackOK(err) {
+		return info, k.Hub, err
+	}
+	primaryErr := err
+	for _, m := range k.Mirrors {
+		if info, err := m.RepoInfo(ctx, repo, rev); err == nil {
+			return info, m, nil
+		}
+	}
+	return nil, nil, primaryErr
 }
 
 func (k *Keeper) now() time.Time {
@@ -111,8 +168,9 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 			return nil, err
 		}
 	}
+	client := k.Hub
 	if m == nil {
-		info, err = k.Hub.RepoInfo(ctx, req.Repo, rev)
+		info, client, err = k.repoInfo(ctx, req.Repo, rev)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +181,7 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 		}
 		m, err = manifest.Load(ctx, k.Store, mrepo, info.SHA)
 		if errors.Is(err, manifest.ErrNotFound) {
-			m, err = k.buildManifest(ctx, req.Repo, info)
+			m, err = k.buildManifest(ctx, client, req.Repo, info)
 		}
 		if err != nil {
 			return nil, err
@@ -151,8 +209,15 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 		targets = append(targets, t)
 	}
 
+	if res.Offline {
+		client = k.ClientFor(m.Upstream)
+	} else if m.Upstream != client.Base() {
+		// Kept earlier from another upstream; files come from where we
+		// resolved the revision this time.
+		m.Upstream = client.Base()
+	}
 	var failed []fetch.Result
-	for _, r := range k.Fetcher.Files(ctx, targets) {
+	for _, r := range k.fetcherFor(client).Files(ctx, targets) {
 		if r.Err != nil {
 			failed = append(failed, r)
 			continue
@@ -185,8 +250,8 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 
 // buildManifest lists the tree and records hashes the Hub gives us. SHA-256
 // of regular files is filled in after they are downloaded.
-func (k *Keeper) buildManifest(ctx context.Context, repo hub.Repo, info *hub.RepoInfo) (*manifest.Manifest, error) {
-	tree, err := k.Hub.Tree(ctx, repo, info.SHA)
+func (k *Keeper) buildManifest(ctx context.Context, client *hub.Client, repo hub.Repo, info *hub.RepoInfo) (*manifest.Manifest, error) {
+	tree, err := client.Tree(ctx, repo, info.SHA)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +260,7 @@ func (k *Keeper) buildManifest(ctx context.Context, repo hub.Repo, info *hub.Rep
 		Repo:      manifest.Repo{Type: string(repo.Type), ID: repo.ID},
 		Commit:    info.SHA,
 		FetchedAt: k.now(),
-		Upstream:  k.Hub.Base(),
+		Upstream:  client.Base(),
 		License: manifest.License{
 			IDs:        info.CardData.License,
 			Name:       info.CardData.LicenseName,
