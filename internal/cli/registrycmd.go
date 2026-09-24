@@ -167,3 +167,33 @@ func cutAt(s string) (string, string, bool) {
 	}
 	return s, "", false
 }
+
+// useDenylist loads the registry's denylist into the keeper. With sync, the
+// registry is refreshed first; if that fails, the last synced copy is used
+// while it hasn't expired. required makes a missing or expired denylist an
+// error rather than a warning. No registry configured means no denylist.
+func (a *app) useDenylist(cmd *cobra.Command, sync, required bool) error {
+	rc, err := a.openRegistry()
+	if err != nil {
+		return err
+	}
+	if rc == nil {
+		cmd.PrintErrln("note: no registry configured, so the denylist isn't checked (see docs/registry.md)")
+		return nil
+	}
+	if sync {
+		if err := rc.Sync(); err != nil {
+			cmd.PrintErrf("warning: %v; using the last synced registry\n", err)
+		}
+	}
+	deny, err := rc.Denylist()
+	if err != nil {
+		if required {
+			return err
+		}
+		cmd.PrintErrf("warning: the denylist isn't checked: %v\n", err)
+		return nil
+	}
+	a.keeper.Deny = deny
+	return nil
+}

@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -85,6 +86,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"bytes", rec.bytes, "duration", time.Since(start).Round(time.Millisecond))
 	}()
 
+	if s.k.Deny != nil && fromOtherMachine(r) {
+		r = r.WithContext(context.WithValue(r.Context(), remoteKey{}, true))
+	}
+
 	if strings.HasPrefix(r.URL.Path, "/v2") || strings.HasPrefix(r.URL.Path, "/blobs/") {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(rec, "method not allowed", http.StatusMethodNotAllowed)
@@ -111,9 +116,73 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// remoteKey marks a request from another machine while a denylist is
+// configured.
+type remoteKey struct{}
+
+// fromOtherMachine reports whether a request came over the network rather
+// than from this machine.
+func fromOtherMachine(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
+}
+
+// deniedError refuses to serve a denylisted revision to another machine.
+// Serving it to this machine's own clients is the user's business (ADR 0007).
+type deniedError struct{ what, reason string }
+
+func (e *deniedError) Error() string {
+	return e.what + " is on the registry's denylist (" + e.reason + "); this server only serves it to its own machine"
+}
+
+// shareable checks m against the denylist for requests from other machines.
+func (s *Server) shareable(ctx context.Context, m *manifest.Manifest) error {
+	if ctx.Value(remoteKey{}) == nil {
+		return nil
+	}
+	if reason, ok := s.k.Denied(m); ok {
+		return &deniedError{what: m.Repo.String() + "@" + m.Commit[:12], reason: reason}
+	}
+	return nil
+}
+
+// blobShareable is shareable for a blob asked for by digest: the content
+// itself, and the revision the store knows it from.
+func (s *Server) blobShareable(ctx context.Context, sum string) error {
+	if ctx.Value(remoteKey{}) == nil {
+		return nil
+	}
+	if reason, ok := s.k.Denied(&manifest.Manifest{Files: []manifest.File{{SHA256: sum}}}); ok {
+		return &deniedError{what: "sha256:" + sum, reason: reason}
+	}
+	// A blob no kept manifest lists can't be matched by repo.
+	if loc, err := manifest.FindBySHA256(ctx, s.k.Store, sum); err == nil {
+		if m, err := manifest.Load(ctx, s.k.Store, loc.Repo, loc.Commit); err == nil {
+			return s.shareable(ctx, m)
+		}
+	}
+	return nil
+}
+
 // revision returns the manifest for repo@rev, learning the revision from
-// the upstream (small files only) if it isn't kept yet.
+// the upstream (small files only) if it isn't kept yet. Denylisted
+// revisions are refused to other machines.
 func (s *Server) revision(ctx context.Context, repo hub.Repo, rev string) (*manifest.Manifest, error) {
+	m, err := s.learnRevision(ctx, repo, rev)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.shareable(ctx, m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (s *Server) learnRevision(ctx context.Context, repo hub.Repo, rev string) (*manifest.Manifest, error) {
 	mrepo := manifest.Repo{Type: string(repo.Type), ID: repo.ID}
 	if hub.IsCommit(rev) {
 		if m, err := manifest.Load(ctx, s.k.Store, mrepo, rev); err == nil {

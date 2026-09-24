@@ -22,6 +22,7 @@ func (k *Keeper) Licence(ctx context.Context, m *manifest.Manifest, online bool)
 		LicenseName: m.License.Name,
 		Gated:       m.License.Gated,
 	}
+	in.DenyReason, in.Denylisted = k.Denied(m)
 	for _, f := range m.Files {
 		if !policy.IsLicenceFile(f.Path) {
 			continue

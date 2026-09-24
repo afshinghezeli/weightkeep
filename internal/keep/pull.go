@@ -26,7 +26,24 @@ type Keeper struct {
 	// Mirrors are tried in order when Hub can't be reached or no longer has
 	// a repo or revision (see fallbackOK).
 	Mirrors []*hub.Client
-	Now     func() time.Time
+	// Deny is the registry's denylist, nil if no registry is configured.
+	// Denylisted revisions are tier C: never seeded or fetched from the
+	// swarm, and not served to other machines.
+	Deny Denylist
+	Now  func() time.Time
+}
+
+// Denylist says whether a revision must not be shared, and why.
+type Denylist interface {
+	Denied(m *manifest.Manifest) (reason string, denied bool)
+}
+
+// Denied checks m against the denylist, if there is one.
+func (k *Keeper) Denied(m *manifest.Manifest) (string, bool) {
+	if k.Deny == nil {
+		return "", false
+	}
+	return k.Deny.Denied(m)
 }
 
 // ClientFor returns the client for the upstream a manifest came from, so

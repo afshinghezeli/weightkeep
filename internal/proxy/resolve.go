@@ -326,7 +326,12 @@ func writeUnavailable(w http.ResponseWriter, msg string) {
 func writeError(w http.ResponseWriter, err error) {
 	h := w.Header()
 	var he *hub.HTTPError
+	var denied *deniedError
 	switch {
+	case errors.As(err, &denied):
+		h.Set("X-Error-Code", "Denylisted")
+		h.Set("X-Error-Message", denied.Error())
+		http.Error(w, denied.Error(), http.StatusUnavailableForLegalReasons)
 	case errors.As(err, &he) && he.Status >= 400 && he.Status < 500 && he.Status != http.StatusTooManyRequests && he.Status != http.StatusRequestTimeout:
 		if he.Code != "" {
 			h.Set("X-Error-Code", he.Code)

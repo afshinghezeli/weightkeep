@@ -37,6 +37,21 @@ offline until the timestamp expires (seven days), when another `sync` is needed.
 - metadata older than what it has already seen (a mirror rolling the registry back);
 - expired metadata (a mirror freezing it, for example to hide a new denylist entry).
 
+### What the denylist does
+
+With a registry configured, weightkeep treats a denylisted revision as tier C:
+
+- `weightkeep seed` skips it, giving the entry's reason. `seed` syncs the registry when it starts and
+  refuses to run if it has no current denylist, so an expired copy can't hide a new entry.
+- `weightkeep pull --torrent` refuses it as soon as the torrent's manifest arrives, before downloading
+  any file data.
+- `weightkeep serve`, when listening beyond localhost, answers `451` with `X-Error-Code: Denylisted`
+  to other machines, whether they ask by repo name or by blob digest. Clients on the same machine
+  still get it: what you already keep for yourself stays yours to use.
+
+A `seed` that is already running keeps the denylist it started with; restart it after a sync to pick
+up new entries.
+
 ## Submitting a revision
 
 Pull the revision, then print its record:

@@ -34,7 +34,15 @@ func (k *Keeper) PullTorrent(ctx context.Context, req TorrentPull) (*PullResult,
 	dir := filepath.Join(k.Store.Root(), "tmp", "torrent-"+hex.EncodeToString(rnd[:]))
 	defer os.RemoveAll(dir)
 
-	infoBytes, err := req.Client.Fetch(ctx, req.Source, dir, req.Peers, k.Store.Has)
+	infoBytes, err := req.Client.Fetch(ctx, req.Source, dir, req.Peers, torrent.FetchHooks{
+		Have: k.Store.Has,
+		Accept: func(m *manifest.Manifest) error {
+			if reason, ok := k.Denied(m); ok {
+				return fmt.Errorf("%s@%s is on the registry's denylist (%s); weightkeep won't fetch it from the swarm", m.Repo, m.Commit[:12], reason)
+			}
+			return nil
+		},
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -57,6 +57,13 @@ to huggingface.co directly before; see docs/clients.md.`,
 			if err != nil {
 				return err
 			}
+			if ip := ln.Addr().(*net.TCPAddr).IP; !ip.IsLoopback() {
+				// Other machines can reach this server: keep denylisted
+				// revisions from them.
+				if err := a.useDenylist(cmd, !offline, false); err != nil {
+					return err
+				}
+			}
 			srv := &http.Server{
 				Handler:           proxy.New(a.keeper, proxy.Options{Offline: offline, Log: log}),
 				ReadHeaderTimeout: 10 * time.Second,

@@ -150,6 +150,10 @@ func serveManifestBody(w http.ResponseWriter, r *http.Request, body []byte) {
 // URL without credentials. Everything here is one host, so it's the 200 form
 // (the Hub uses the same for its small generated blobs).
 func (s *Server) ollamaBlob(w http.ResponseWriter, r *http.Request, repoID, sum string) {
+	if err := s.blobShareable(r.Context(), sum); err != nil {
+		writeError(w, err)
+		return
+	}
 	size, err := s.blobSize(r.Context(), sum)
 	if errors.Is(err, store.ErrNotFound) && !s.offline {
 		size, err = s.fetchGeneratedBlob(r.Context(), r, repoID, sum)
@@ -217,6 +221,10 @@ func (s *Server) fetchGeneratedBlob(ctx context.Context, r *http.Request, repoID
 // directBlob serves /blobs/sha256/X: from the store if kept, streamed from
 // upstream if a kept manifest lists a file with that content.
 func (s *Server) directBlob(w http.ResponseWriter, r *http.Request, sum string) {
+	if err := s.blobShareable(r.Context(), sum); err != nil {
+		writeError(w, err)
+		return
+	}
 	if s.k.Store.Has(sum) {
 		f, err := s.k.Store.Open(sum)
 		if err != nil {

@@ -133,6 +133,9 @@ func pullTorrent(cmd *cobra.Command, d deps, src string, peerArgs []string, args
 		return err
 	}
 	defer a.Close()
+	if err := a.useDenylist(cmd, true, false); err != nil {
+		return err
+	}
 	client, err := wktorrent.NewClient(a.store, wktorrent.ClientConfig{
 		DataDir: filepath.Join(a.cfg.Home, "torrent-client"),
 	})

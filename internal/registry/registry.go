@@ -128,3 +128,9 @@ func (d *Denylist) Match(m *manifest.Manifest) (DenyEntry, bool) {
 	}
 	return DenyEntry{}, false
 }
+
+// Denied reports whether the denylist covers the revision, with the reason.
+func (d *Denylist) Denied(m *manifest.Manifest) (string, bool) {
+	e, ok := d.Match(m)
+	return e.Reason, ok
+}

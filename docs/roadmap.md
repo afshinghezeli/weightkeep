@@ -195,8 +195,14 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Done as `weightkeep registry sync|show|record`, with the root configured (`registry.root`) until a
   public registry exists to pin. Tests cover tampered records, rollback, expiry and foreign keys; a
   real sync ran against a registry served by `python -m http.server`.
-- [ ] **M4.4 Denylist.** after M4.3
+- [x] **M4.4 Denylist.** after M4.3
   Refuse to seed or serve-to-others anything on the signed denylist.
+  Done: a denylisted revision is tier C, so `seed` skips it (and refuses to start without a current
+  denylist when a registry is configured); `pull --torrent` stops once the torrent's manifest arrives,
+  before any file data; `serve` bound beyond localhost answers 451 to other machines, by name or by
+  blob digest. Checked with a real registry denylisting prajjwal1/bert-tiny: `seed` skipped it with
+  the entry's reason. The serve refusal is covered by tests only; inbound LAN traffic was blocked on
+  the test machine.
 - [ ] **M4.5 Namespace checks.** after M4.3
   On pull, compare against registry manifests; warn loudly when an `org/name` now serves different
   content for a commit or when a repo was deleted and re-created.

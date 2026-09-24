@@ -365,7 +365,7 @@ func (s *Server) relay(w http.ResponseWriter, r *http.Request, resp *http.Respon
 	h.Set("Content-Length", strconv.Itoa(len(data)))
 	h.Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write(data) //nolint:gosec // G705: relaying the Hub's API answer (JSON) with nosniff; nothing is rendered
+	_, _ = w.Write(data)
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, r *http.Request, v any) {
@@ -380,7 +380,7 @@ func (s *Server) writeJSON(w http.ResponseWriter, r *http.Request, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_, _ = w.Write(data) //nolint:gosec // G705: marshalled JSON with a JSON content type
+	_, _ = w.Write(data)
 }
 
 // stripXetJSON removes every "xetHash" key. Newer huggingface_hub skips its

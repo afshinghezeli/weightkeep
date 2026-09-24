@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/afshinghezeli/weightkeep/internal/hub"
+	"github.com/afshinghezeli/weightkeep/internal/manifest"
 	"github.com/afshinghezeli/weightkeep/internal/policy"
 	"github.com/afshinghezeli/weightkeep/internal/testutil/fakehub"
 )
@@ -81,5 +82,29 @@ func TestUploadedPerMonth(t *testing.T) {
 	}
 	if n, _ := Uploaded(ctx, k.Store, "2026-10"); n != 0 {
 		t.Errorf("next month = %d", n)
+	}
+}
+
+type denyRepo string
+
+func (d denyRepo) Denied(m *manifest.Manifest) (string, bool) {
+	return "DMCA notice", m.Repo.ID == string(d)
+}
+
+func TestSeedPlanHonoursDenylist(t *testing.T) {
+	k, h := newKeeper(t)
+	ctx := context.Background()
+	mit, _ := policy.Text("MIT")
+	h.Add(&fakehub.Repo{ID: "acme/mit", License: "mit", Files: []fakehub.File{{Path: "LICENSE", Content: []byte(mit)}}})
+	if _, err := k.Pull(ctx, PullRequest{Repo: hub.Repo{Type: hub.Model, ID: "acme/mit"}}); err != nil {
+		t.Fatal(err)
+	}
+	k.Deny = denyRepo("acme/mit")
+	cs, err := k.SeedPlan(ctx, Selector{}, SeedOptions{Online: true})
+	if err != nil || len(cs) != 1 {
+		t.Fatalf("plan: %v %v", cs, err)
+	}
+	if c := cs[0]; c.Seed || !strings.Contains(c.Why, "denylist: DMCA notice") {
+		t.Errorf("denylisted tier A revision: seed=%v why=%q", c.Seed, c.Why)
 	}
 }
