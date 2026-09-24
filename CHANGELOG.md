@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.2.0](https://github.com/afshinghezeli/weightkeep/compare/v0.1.0...v0.2.0) (2026-09-24)
+
+Sharing. Kept revisions can now be seeded over BitTorrent, where their licence allows it, and pulled
+from other weightkeep nodes when the Hub can't serve them, by torrent or through HTTP mirrors.
+
+### Added
+
+* `weightkeep seed` shares fully kept revisions straight from the store, with the Hub as a web seed,
+  an upload rate limit and a monthly cap. Every revision is listed with the reason it is or isn't
+  shared. ([#19](https://github.com/afshinghezeli/weightkeep/pull/19),
+  [#22](https://github.com/afshinghezeli/weightkeep/pull/22))
+* `weightkeep license REPO` shows the sharing tier a revision gets and why: gated, private and
+  unlicensed repos are never shared; tier B licences (Llama, Gemma, OpenRAIL, ...) need an explicit
+  `--allow`, non-commercial ones also `--non-commercial`. When a permissively licensed repo has no
+  LICENSE file, the licence text travels with the torrent.
+  ([#16](https://github.com/afshinghezeli/weightkeep/pull/16))
+* `weightkeep pull --torrent MAGNET [--peer HOST:PORT]` fetches a revision from other nodes. The
+  torrent carries the revision's manifest inside its info dict, so a magnet link alone is enough to
+  verify every file. ([#23](https://github.com/afshinghezeli/weightkeep/pull/23))
+* A `mirrors` list (config or `WEIGHTKEEP_MIRRORS`) is tried when the Hub is down or no longer has a
+  repo; any node's `weightkeep serve` works as a mirror. Never used for gated repos, and mirrors never
+  receive your Hub token. ([#24](https://github.com/afshinghezeli/weightkeep/pull/24))
+
+### Notes
+
+* Torrents are BitTorrent v1 with padded files, which qBittorrent, Transmission and libtorrent download
+  too. Hybrid v1+v2 torrents are built and tested but not seeded yet: anacrolix/torrent and libtorrent
+  disagree on piece lengths for them (ADR 0010).
+* Downloading from the Hub as a web seed was tested for 76 minutes, past the expiry of the Hub's
+  signed CDN URLs.
+
 ## 0.1.0 (2026-09-24)
 
 First release. weightkeep keeps commit-pinned, hash-verified copies of Hugging Face model repositories
