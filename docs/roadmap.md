@@ -151,9 +151,12 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Done: seeding maps torrent files onto blobs (no copies) and trusts store verification for piece
   completion. libtorrent downloads a revision from it. Seeds v1 torrents with BEP 47 padding for now
   (ADR 0010): anacrolix and libtorrent disagree on hybrid piece lengths.
-- [ ] **M3.4 `seed`.** after M3.1, M3.3
+- [x] **M3.4 `seed`.** after M3.1, M3.3
   Seed tier A by default, B1/B2 only with per-model opt-in; disk budget, upload rate limit, monthly cap.
   Accept: a tier C revision is refused with a message naming the rule.
+  Done: upload rate limit and a monthly cap tracked in SQLite. Fetching extra under-seeded models into
+  a disk budget needs registry data and moves to M4. libtorrent downloaded SmolLM2-135M (272 MB) from
+  `weightkeep seed`, SHA-256 matching the Hub.
 - [ ] **M3.5 Multi-source fetch.** after M3.3
   Fetch scheduler across Hub, swarm and configured HTTP/IPFS-gateway mirrors, piece-aligned ranges
   verified against v2 piece layers.

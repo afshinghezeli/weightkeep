@@ -206,3 +206,49 @@ func TestRmAndGC(t *testing.T) {
 		t.Errorf("ls after rm: %s", out)
 	}
 }
+
+func TestParseSize(t *testing.T) {
+	for in, want := range map[string]int64{"0": 0, "500": 500, "10MB": 10e6, "1.5GB": 1.5e9, "2TiB": 2 << 40, "64 kib": 64 << 10} {
+		if got, err := parseSize(in); err != nil || got != want {
+			t.Errorf("parseSize(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", "ten", "-1MB", "5XB"} {
+		if _, err := parseSize(bad); err == nil {
+			t.Errorf("parseSize(%q) accepted", bad)
+		}
+	}
+}
+
+func TestSeedDryRunNamesTheRule(t *testing.T) {
+	h := fakehub.New(
+		&fakehub.Repo{ID: "acme/open", License: "mit", Files: []fakehub.File{{Path: "config.json", Content: []byte("{}")}}},
+		&fakehub.Repo{ID: "acme/closed", Files: []fakehub.File{{Path: "config.json", Content: []byte("[]")}}},
+	)
+	defer h.Close()
+	home := t.TempDir()
+	d := deps{loadConfig: func() (*config.Config, error) { return &config.Config{Home: home, Upstream: h.URL}, nil }}
+	run := func(args ...string) (string, int) {
+		var out, errOut bytes.Buffer
+		code := execute(context.Background(), Streams{Out: &out, Err: &errOut}, d, args)
+		return out.String() + errOut.String(), code
+	}
+	for _, r := range []string{"acme/open", "acme/closed"} {
+		if out, code := run("pull", r); code != 0 {
+			t.Fatal(out)
+		}
+	}
+	out, code := run("seed", "--dry-run")
+	if code != 0 {
+		t.Fatal(out)
+	}
+	if !strings.Contains(out, "share  acme/open@") {
+		t.Errorf("MIT repo not shared:\n%s", out)
+	}
+	if !strings.Contains(out, "skip   acme/closed@") || !strings.Contains(out, "tier C, never shared: no licence declared") {
+		t.Errorf("unlicensed repo not refused with its rule:\n%s", out)
+	}
+	if out, code := run("seed", "--dry-run", "acme/closed"); code == 0 || !strings.Contains(out, "nothing to share") {
+		t.Errorf("seeding only a tier C repo: %d\n%s", code, out)
+	}
+}
