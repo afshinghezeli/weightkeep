@@ -1,9 +1,9 @@
 ---
-status: proposed
+status: accepted
 date: 2026-09-24
 ---
 
-# TUF registry carrying OMS manifests
+# TUF registry of revision manifests
 
 ## Context and problem statement
 
@@ -27,25 +27,34 @@ single maintainer.
 
 ## Decision outcome
 
-Chosen option 3, proposed until the registry work starts (M4).
+Chosen option 3, a static TUF repository built with go-tuf v2. Details as built in M4.2 and M4.3:
 
-- Authoring happens in a git repo: a PR adds `models/<org>/<repo>/<commit>.json`. CI re-fetches the
-  Hub metadata, checks licence tier and gating, and checks the denylist.
-- `root` and `targets` are signed by maintainers with a threshold (2 of N) using ECDSA P-256 keys
-  (OMS does not list Ed25519). `snapshot` and `timestamp` are signed online by CI; timestamp expires
-  after one day.
-- Each target is an OMS v1.0 in-toto statement (`https://model_signing/signature/v1.0`,
-  `method: files`, `hash_type: sha256`). Our extras (BEP 52 roots, magnets, mirrors, licence tier)
-  go in TUF target custom metadata so the OMS payload stays schema-valid.
-- The client pins the initial root in the binary and follows TUF root rotation.
-- Published to GitHub Pages; anyone can mirror the directory.
+- Authoring happens in a git repo: a pull request adds `records/models/<org>/<name>/<commit>.json`.
+  `weightkeep-registry check` re-fetches the Hub tree at that commit and compares every file, and
+  refuses gated, private, tier C and denylisted revisions.
+- Each target is a weightkeep record: our manifest (the same file list, sizes and SHA-256 that
+  `manifest sign` turns into an OMS statement) plus an optional magnet link. We dropped the plan to
+  store OMS statements with our extras in TUF custom metadata: an unsigned OMS statement adds nothing
+  TUF doesn't already give, and anyone who wants one can produce it from the manifest.
+- All roles use ECDSA P-256 keys. Root is signed offline with a threshold. Targets, snapshot and
+  timestamp are signed by the registry repo's CI. The timestamp expires after seven days and CI
+  re-signs it daily; snapshot 30 days, targets 90, root a year.
+- The client is configured with a registry URL and a trusted `1.root.json`, and follows root rotation
+  from there. Pinning a root in the binary waits until a public registry with its maintainers' keys
+  exists.
+- Consistent snapshots are off, so the published directory is plain files any web server can host.
 
 ### Consequences
 
-- Good: standard, audited update semantics instead of a homemade scheme.
-- Good: our manifest SHA-256 values equal the Hub's own, so the registry can be checked against the
-  Hub while it still exists.
-- Bad: key management work for maintainers. tuf-on-ci handles most of it through PRs.
+- Good: standard, audited update semantics instead of a homemade scheme. Rollback, freeze and foreign
+  keys are each covered by a test.
+- Good: our manifest SHA-256 values equal the Hub's own, so a record can be checked against the Hub
+  while the Hub still serves the revision.
+- Bad: CI holds the targets key, so a compromised CI can sign bad records until the maintainers
+  rotate it with the root keys. A threshold of maintainers on targets would close that, at the cost of
+  a human signing every publish.
+- Bad: every client downloads every record on sync. Fine for thousands of records; beyond that it
+  needs per-namespace delegations.
 
 ## More information
 

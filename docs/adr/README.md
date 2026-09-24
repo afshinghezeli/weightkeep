@@ -13,7 +13,7 @@ free number. An accepted ADR is not edited except to change its status; supersed
 | [0003](0003-content-addressed-store.md) | Content-addressed store keyed by SHA-256, metadata in SQLite | accepted |
 | [0004](0004-hub-compatible-proxy.md) | Imitate the Hub API, strip Xet | accepted |
 | [0005](0005-bittorrent-v2-with-hub-webseeds.md) | Hybrid v1/v2 torrents with Hub web seeds | accepted, amended by 0010 |
-| [0006](0006-registry-trust-model.md) | TUF registry carrying OMS manifests | proposed |
+| [0006](0006-registry-trust-model.md) | TUF registry of revision manifests | accepted |
 | [0007](0007-licence-tiers.md) | Licence tiers decide what may be shared | accepted, amended by 0009 |
 | [0008](0008-commits-and-releases.md) | Conventional Commits, release-please, GoReleaser | accepted |
 | [0009](0009-licence-texts-for-repos-without-a-licence-file.md) | Supply licence texts for permissively licensed repos without a LICENSE file | accepted |
