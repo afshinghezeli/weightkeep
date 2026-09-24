@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -128,9 +127,6 @@ func NewClient(st *store.Store, cfg ClientConfig) (*Client, error) {
 	if cfg.Log != nil {
 		tc.Slogger = cfg.Log
 	}
-	// Storage is chosen per torrent; the default only matters for torrents
-	// added without one, which we never do.
-	tc.DefaultStorage = storage.NewMMap(cfg.DataDir)
 	cl, err := torrent.NewClient(tc)
 	if err != nil {
 		return nil, fmt.Errorf("start BitTorrent client: %w", err)
@@ -157,8 +153,7 @@ func (c *Client) Addr() net.Addr {
 }
 
 // Seed adds a fully kept revision for seeding with its torrent (from
-// ForRevision). Every piece is marked complete without re-hashing: the blobs
-// were verified when stored and `weightkeep verify` re-checks them.
+// ForRevision). The torrent must be piece-aligned (Options.V1Only, ADR 0010).
 func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, error) {
 	mi, err := metainfo.Load(strings.NewReader(string(metaInfo)))
 	if err != nil {
@@ -171,48 +166,18 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 	if info.Name != m.Commit {
 		return nil, fmt.Errorf("torrent is for %s, not %s", info.Name, m.Commit)
 	}
-	blobRel := map[string]string{}
+	blobPath := map[string]string{}
 	for _, f := range m.Files {
 		if !c.st.Has(f.SHA256) {
 			return nil, fmt.Errorf("%w: %s", ErrNotFullyKept, f.Path)
 		}
-		rel, err := filepath.Rel(c.st.Root(), c.st.Path(f.SHA256))
-		if err != nil {
-			return nil, err
-		}
-		blobRel[f.Path] = rel
+		blobPath[f.Path] = c.st.Path(f.SHA256)
 	}
-
-	completion := storage.NewMapPieceCompletion()
+	stor, err := newBlobStorage(&info, blobPath)
+	if err != nil {
+		return nil, err
+	}
 	ih := mi.HashInfoBytes()
-	for i := range info.NumPieces() {
-		if err := completion.Set(metainfo.PieceKey{InfoHash: ih, Index: i}, true); err != nil {
-			return nil, err
-		}
-	}
-	root := c.st.Root()
-	// anacrolix's file storage checks every file's size against the
-	// torrent, pads included, so each pad length needs its own zeros file.
-	zeros := map[int64]string{}
-	for f := range info.UpvertedV1Files() {
-		if f.Attr == "p" {
-			if zeros[f.Length], err = c.zerosFile(f.Length); err != nil {
-				return nil, err
-			}
-		}
-	}
-	stor := c.track(storage.NewFileOpts(storage.NewFileClientOpts{
-		ClientBaseDir:   root,
-		TorrentDirMaker: func(string, *metainfo.Info, metainfo.Hash) string { return root },
-		FilePathMaker: func(o storage.FilePathMakerOpts) string {
-			p := strings.Join(o.File.BestPath(), "/")
-			if o.File.Attr == "p" {
-				return zeros[o.File.Length] // BEP 47 padding reads as zeros
-			}
-			return blobRel[p]
-		},
-		PieceCompletion: completion,
-	}))
 
 	opts := torrent.AddTorrentOpts{
 		InfoHash:                 ih,
@@ -233,32 +198,6 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 		t.AddWebSeeds(mi.UrlList)
 	}
 	return t, nil
-}
-
-// zerosFile returns (creating it once) a sparse file of n zero bytes under
-// the store, relative to the store root, for BEP 47 pad files to read from.
-// Sparse files take no disk space.
-func (c *Client) zerosFile(n int64) (string, error) {
-	rel := filepath.Join("torrents", "zeros", strconv.FormatInt(n, 10))
-	abs := filepath.Join(c.st.Root(), rel)
-	if fi, err := os.Stat(abs); err == nil && fi.Size() == n {
-		return rel, nil
-	}
-	if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
-		return "", err
-	}
-	f, err := os.Create(abs)
-	if err != nil {
-		return "", err
-	}
-	if err := f.Truncate(n); err != nil {
-		f.Close()
-		return "", err
-	}
-	if err := f.Close(); err != nil {
-		return "", err
-	}
-	return rel, os.Chmod(abs, 0o444)
 }
 
 // Download fetches a torrent into dir (not the store): used by tests and by
