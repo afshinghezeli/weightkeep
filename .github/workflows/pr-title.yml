@@ -33,6 +33,8 @@ jobs:
             cli
             config
             hub
+            ids
+            keep
             store
             manifest
             fetch
@@ -44,6 +46,7 @@ jobs:
             seed
             deps
             release
+            testutil
             main
           requireScope: false
           subjectPattern: ^[a-z0-9].*[^.]$
