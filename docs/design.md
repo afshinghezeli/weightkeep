@@ -54,7 +54,7 @@ through the same HTTP API the Hub speaks.
 | `weightkeep verify [org/model[@rev]]` | Re-hash stored blobs (bitrot check). |
 | `weightkeep serve` | HF-compatible HTTP endpoint. Pull-through on cache miss when online. |
 | `weightkeep export org/model@rev` | Materialise a revision into the standard HF cache layout (or a plain directory). |
-| `weightkeep seed` | Share kept blobs over BitTorrent, within disk and bandwidth budgets, for licences that allow it. |
+| `weightkeep seed` | Share fully kept revisions over BitTorrent (Hub as web seed), with an upload rate and monthly cap, for licences that allow it. |
 | `weightkeep registry sync` | Fetch the signed community registry (TUF). |
 | `weightkeep rm REPO@REV` | Forget a revision (its blobs go at the next `gc`). |
 | `weightkeep gc` | Drop unreferenced blobs, stale locks and abandoned partials. |
