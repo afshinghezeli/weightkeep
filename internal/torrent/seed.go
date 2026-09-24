@@ -1,6 +1,7 @@
 package torrent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent"
@@ -46,24 +48,49 @@ func StoreFiles(st *store.Store, m *manifest.Manifest) ([]File, error) {
 	return files, nil
 }
 
-// CachePath is where the torrent for repo@commit is kept once built.
-func CachePath(root string, repo manifest.Repo, commit string) string {
+// cacheFormat changes whenever what goes into a seeded torrent changes, so
+// torrents cached by an older weightkeep are rebuilt instead of reused.
+// 2: manifest embedded in the info dict.
+const cacheFormat = 2
+
+// CachePath is where the torrent for repo@commit is kept once built. The
+// name records what the info hash depends on besides the files.
+func CachePath(root string, repo manifest.Repo, commit string, opts Options) string {
 	parts := append([]string{root, "torrents", repo.Type + "s"}, strings.Split(repo.ID, "/")...)
-	return filepath.Join(append(parts, commit+".torrent")...)
+	kind := "hybrid"
+	if opts.V1Only {
+		kind = "v1"
+	}
+	name := fmt.Sprintf("%s.f%d.%s.%d.torrent", commit, cacheFormat, kind, opts.PieceLength)
+	return filepath.Join(append(parts, name)...)
 }
 
 // ForRevision builds the torrent for a fully kept revision, or loads it
 // from the cache. Building reads every file once, so the result is cached.
-// The build also re-checks every file's SHA-256 against the manifest.
+// The build also re-checks every file's SHA-256 against the manifest, and
+// the manifest is embedded in the info dict.
 func ForRevision(st *store.Store, m *manifest.Manifest, opts Options) ([]byte, error) {
-	cache := CachePath(st.Root(), m.Repo, m.Commit)
-	if b, err := os.ReadFile(cache); err == nil {
-		return b, nil
-	}
 	files, err := StoreFiles(st, m)
 	if err != nil {
 		return nil, err
 	}
+	if opts.PieceLength == 0 {
+		var total int64
+		for _, f := range files {
+			total += f.Size
+		}
+		opts.PieceLength = PieceLengthFor(total)
+	}
+	cache := CachePath(st.Root(), m.Repo, m.Commit, opts)
+	if b, err := os.ReadFile(cache); err == nil {
+		return b, nil
+	}
+	// Seeded torrents always carry the manifest (see embed.go).
+	extra := ManifestInfoExtra(m)
+	for k, v := range opts.InfoExtra {
+		extra[k] = v
+	}
+	opts.InfoExtra = extra
 	res, err := Build(m.Commit, files, opts)
 	if err != nil {
 		return nil, err
@@ -155,7 +182,7 @@ func (c *Client) Addr() net.Addr {
 // Seed adds a fully kept revision for seeding with its torrent (from
 // ForRevision). The torrent must be piece-aligned (Options.V1Only, ADR 0010).
 func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, error) {
-	mi, err := metainfo.Load(strings.NewReader(string(metaInfo)))
+	mi, err := metainfo.Load(bytes.NewReader(metaInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -200,16 +227,35 @@ func (c *Client) Seed(m *manifest.Manifest, metaInfo []byte) (*torrent.Torrent, 
 	return t, nil
 }
 
-// Download fetches a torrent into dir (not the store): used by tests and by
-// the swarm fetcher, which verifies and imports into the store afterwards.
-func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peers ...net.Addr) (*torrent.Torrent, error) {
-	mi, err := metainfo.Load(strings.NewReader(string(metaInfo)))
-	if err != nil {
-		return nil, err
-	}
-	spec, err := torrent.TorrentSpecFromMetaInfoErr(mi)
-	if err != nil {
-		return nil, err
+// Source is where a torrent comes from: a .torrent file's bytes or a
+// magnet link.
+type Source struct {
+	MetaInfo []byte
+	Magnet   string
+}
+
+// Fetch downloads a revision's torrent into dir and returns its info bytes.
+// Files whose SHA-256 (from the embedded manifest) satisfies have are not
+// downloaded: torrents are piece-aligned, so a file can be skipped whole.
+// The torrent's web seeds are used when the client allows them.
+func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.Addr, have func(sha256 string) bool) ([]byte, error) {
+	var spec *torrent.TorrentSpec
+	switch {
+	case src.MetaInfo != nil:
+		mi, err := metainfo.Load(bytes.NewReader(src.MetaInfo))
+		if err != nil {
+			return nil, err
+		}
+		if spec, err = torrent.TorrentSpecFromMetaInfoErr(mi); err != nil {
+			return nil, err
+		}
+	case src.Magnet != "":
+		var err error
+		if spec, err = torrent.TorrentSpecFromMagnetUri(src.Magnet); err != nil {
+			return nil, fmt.Errorf("magnet link: %w", err)
+		}
+	default:
+		return nil, errors.New("no torrent or magnet link")
 	}
 	spec.Storage = c.track(storage.NewFileOpts(storage.NewFileClientOpts{
 		ClientBaseDir:   dir,
@@ -220,6 +266,7 @@ func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peer
 	if err != nil {
 		return nil, err
 	}
+	defer t.Drop()
 	var pi []torrent.PeerInfo
 	for _, a := range peers {
 		pi = append(pi, torrent.PeerInfo{Addr: a, Trusted: true})
@@ -228,13 +275,51 @@ func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peer
 	select {
 	case <-t.GotInfo():
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("waiting for torrent metadata from peers: %w", ctx.Err())
 	}
-	t.DownloadAll()
-	select {
-	case <-t.Complete().On():
-		return t, nil
-	case <-ctx.Done():
-		return t, ctx.Err()
+	infoBytes := t.Metainfo().InfoBytes
+	m, err := EmbeddedManifest(infoBytes, time.Time{}, "")
+	if err != nil {
+		return nil, err
 	}
+	shaOf := map[string]string{}
+	for _, f := range m.Files {
+		shaOf[f.Path] = f.SHA256
+	}
+	var need []*torrent.File
+	for _, f := range t.Files() {
+		p := strings.TrimPrefix(f.Path(), t.Name()+"/")
+		sum, ok := shaOf[p]
+		if !ok || f.Length() == 0 || have(sum) {
+			f.SetPriority(torrent.PiecePriorityNone)
+			continue
+		}
+		f.Download()
+		need = append(need, f)
+	}
+	tick := time.NewTicker(200 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		done := true
+		for _, f := range need {
+			if f.BytesCompleted() < f.Length() {
+				done = false
+				break
+			}
+		}
+		if done {
+			return infoBytes, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-tick.C:
+		}
+	}
+}
+
+// Download fetches a whole torrent into dir. Used by tests.
+func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peers ...net.Addr) (*torrent.Torrent, error) {
+	_, err := c.Fetch(ctx, Source{MetaInfo: metaInfo}, dir, peers, func(string) bool { return false })
+	return nil, err
 }

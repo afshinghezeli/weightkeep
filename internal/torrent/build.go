@@ -37,8 +37,12 @@ type Options struct {
 	// "https://huggingface.co/<repo>/resolve/", so each file's URL is
 	// .../resolve/<commit>/<path>.
 	WebSeeds []string
-	// Extra top-level metainfo keys, e.g. "weightkeep.license".
+	// Extra top-level metainfo keys, e.g. "weightkeep.license". Not
+	// covered by the info hash.
 	Extra map[string]any
+	// InfoExtra adds keys inside the info dict, where the info hash covers
+	// them and peers pass them on with the metadata (BEP 9).
+	InfoExtra map[string]any
 	// Comment and CreatedBy go into the metainfo as usual.
 	Comment   string
 	CreatedBy string
@@ -156,6 +160,12 @@ func Build(name string, files []File, opts Options) (*Result, error) {
 	if !opts.V1Only {
 		info["file tree"] = fileTree
 		info["meta version"] = 2
+	}
+	for k, v := range opts.InfoExtra {
+		if _, taken := info[k]; taken {
+			return nil, fmt.Errorf("info key %q is reserved", k)
+		}
+		info[k] = v
 	}
 	infoBytes, err := bencode.Marshal(info)
 	if err != nil {
