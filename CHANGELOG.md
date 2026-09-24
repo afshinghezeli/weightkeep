@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.0](https://github.com/afshinghezeli/weightkeep/compare/v0.1.0...v0.1.0) (2026-09-24)
+
+
+### Added
+
+* **policy:** decide sharing tiers from licence, gate and base models ([#16](https://github.com/afshinghezeli/weightkeep/issues/16)) ([2031cd0](https://github.com/afshinghezeli/weightkeep/commit/2031cd0130b3e399b2fd6393ca92990fbc6ed9c6))
+* **torrent:** build hybrid v1+v2 torrents for a revision ([#17](https://github.com/afshinghezeli/weightkeep/issues/17)) ([829e1b8](https://github.com/afshinghezeli/weightkeep/commit/829e1b83f5e6a876f7ba028b5bae7cf412315a46))
+
 ## 0.1.0 (2026-09-24)
 
 First release. weightkeep keeps commit-pinned, hash-verified copies of Hugging Face model repositories
