@@ -119,9 +119,11 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Accept: suite green locally and in CI.
   Done: 7 tests. llama.cpp is exercised through `llama-completion -hf`; the text-generation-webui
   downloader is fetched from a pinned commit at test time (it's AGPL) and its `--check` must pass.
-- [ ] **M2.8 Ollama routes.** after M2.7
+- [x] **M2.8 Ollama routes.** after M2.7
   `/v2/{ns}/{repo}/manifests/{tag}` and `/v2/{ns}/{repo}/blobs/sha256:{hex}` per the hf-protocol notes.
   Accept: `ollama pull 127.0.0.1:8700/bartowski/SmolLM2-135M-Instruct-GGUF:Q4_K_M --insecure` works.
+  Done: blob GETs answer 200 with Location, because Ollama follows same-host redirects and needs the
+  last response to carry one. Covered by `test/compat/test_ollama.py` with real Ollama 0.34.
 - [ ] **M2.9 README and 0.1.0.** after M2.7, M0.5
   README with install, quick start, how it works, comparison, limits, FAQ (licences first). Opening and
   "why" left for the maintainer to write. Release 0.1.0.

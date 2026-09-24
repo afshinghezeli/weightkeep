@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs real Hugging Face clients against `weightkeep serve`.
-# Needs network access to huggingface.co and uv. llama.cpp is optional:
-# its tests are skipped when llama-completion isn't on PATH.
+# Needs network access to huggingface.co and uv. llama.cpp and Ollama are
+# optional: their tests are skipped when llama-completion or ollama isn't on
+# PATH.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 [ -x bin/weightkeep ] || make build
