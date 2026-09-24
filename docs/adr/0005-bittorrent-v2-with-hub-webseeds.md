@@ -1,5 +1,5 @@
 ---
-status: proposed (amended by 0010)
+status: accepted (amended by 0010)
 date: 2026-09-24
 ---
 
@@ -50,5 +50,14 @@ IPFS is supported only as an HTTP mirror type (gateways or a user's own Kubo), n
 
 ## More information
 
-Spikes before acceptance: (1) anacrolix web seeds against the Hub for more than an hour; (2) our
-hybrid torrents load in qBittorrent and match libtorrent's infohashes for the same input.
+Spikes before acceptance:
+
+1. Web seeds against the Hub for more than an hour (`tools/webseed-spike`, 2026-09-24). A torrent
+   for HuggingFaceTB/SmolLM2-135M@93efa2f named after the commit, with
+   `https://huggingface.co/HuggingFaceTB/SmolLM2-135M/resolve/` as its only source, downloaded by
+   anacrolix/torrent with no peers, DHT or trackers. At full speed: 272 MB in 60 s. Throttled to
+   60 KB/s: 76 minutes, complete, every piece verified, no error responses. anacrolix asks for about
+   64 MB per range, and each range starts at `/resolve/` again, so ranges begun after the signed CDN
+   URLs of the first ones had expired got fresh URLs. Five resolver calls for the whole model.
+2. Infohashes against libtorrent: identical for v1 and hybrid output (`TestMatchesLibtorrent`). Seeding
+   hybrids to libtorrent failed for another reason, recorded in ADR 0010.

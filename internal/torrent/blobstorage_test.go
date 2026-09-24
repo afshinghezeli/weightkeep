@@ -29,7 +29,7 @@ func TestBlobStoragePiecesMatchTorrent(t *testing.T) {
 	for _, f := range m.Files {
 		blobs[f.Path] = st.Path(f.SHA256)
 	}
-	s, err := newBlobStorage(&info, blobs)
+	s, err := newAlignedStorage(&info, func(p string) (string, bool) { b, ok := blobs[p]; return b, ok }, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +58,12 @@ func TestBlobStorageRejectsBadTorrents(t *testing.T) {
 		{Length: 100, Path: []string{"a"}},
 		{Length: 100, Path: []string{"b"}}, // starts mid-piece
 	}}
-	if _, err := newBlobStorage(&unpadded, map[string]string{"a": "x", "b": "y"}); err == nil {
+	any := func(string) (string, bool) { return "x", true }
+	if _, err := newAlignedStorage(&unpadded, any, false); err == nil {
 		t.Error("accepted an unpadded torrent")
 	}
 	tooFewPieces := metainfo.Info{PieceLength: 16 << 10, Files: []metainfo.FileInfo{{Length: 100, Path: []string{"a"}}}}
-	if _, err := newBlobStorage(&tooFewPieces, map[string]string{"a": "x"}); err == nil {
+	if _, err := newAlignedStorage(&tooFewPieces, any, false); err == nil {
 		t.Error("accepted a torrent with fewer piece hashes than data")
 	}
 }

@@ -130,9 +130,10 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
 
 ## M3 Share (0.2.0)
 
-- [ ] **M3.0 Spike: web seeds against the Hub.** after M1.3
+- [x] **M3.0 Spike: web seeds against the Hub.** after M1.3
   anacrolix web seed peer fetching a commit-pinned repo for over an hour (signed URL expiry, relative
   redirects, token only to huggingface.co, throughput). Result recorded in ADR 0005.
+  Done: 76 minutes at 60 KB/s from web seeds only, complete and verified, no errors.
 - [x] **M3.1 Licence detection.** after M1.6
   At pull time record `cardData.license`, `license_name`, `license_link`, `gated`, LICENSE file path
   and SHA-256, `base_model`. Compute the tier from `internal/policy` data.
@@ -157,10 +158,17 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   Done: upload rate limit and a monthly cap tracked in SQLite. Fetching extra under-seeded models into
   a disk budget needs registry data and moves to M4. libtorrent downloaded SmolLM2-135M (272 MB) from
   `weightkeep seed`, SHA-256 matching the Hub.
-- [ ] **M3.5 Multi-source fetch.** after M3.3
-  Fetch scheduler across Hub, swarm and configured HTTP/IPFS-gateway mirrors, piece-aligned ranges
-  verified against v2 piece layers.
+- [x] **M3.5 Pull from the swarm.** after M3.3
+  `weightkeep pull --torrent FILE|MAGNET [--peer HOST:PORT]`: fetch a revision from other nodes, verified
+  against the manifest the torrent carries in its info dict (authenticated by the info hash).
   Accept: with upstream blocked, a second node pulls a revision from the first node's seed.
+  Done: tested in-process and with two real nodes: node B, with no Hub, pulled SmolLM2-135M from node A
+  by magnet link, verified it, and served it to huggingface_hub offline.
+- [ ] **M3.6 Mirror fallback.** after M3.5
+  A `mirrors` list in the config (other weightkeep nodes, hf-mirror.com, an IPFS gateway speaking the
+  Hub API) tried in order when the upstream is unreachable or no longer has the repo.
+  Accept: with the primary upstream returning 404 for a repo, `pull` gets it from a mirror and records
+  which one.
 
 ## M4 Trust
 

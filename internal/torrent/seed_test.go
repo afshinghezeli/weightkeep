@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/anacrolix/torrent/metainfo"
+
 	"github.com/afshinghezeli/weightkeep/internal/manifest"
 	"github.com/afshinghezeli/weightkeep/internal/store"
 	"github.com/afshinghezeli/weightkeep/internal/testutil"
@@ -51,7 +53,7 @@ func TestSeedFromStoreToAnotherClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Cached for next time.
-	if _, err := os.Stat(CachePath(st.Root(), m.Repo, m.Commit)); err != nil {
+	if _, err := os.Stat(CachePath(st.Root(), m.Repo, m.Commit, Options{PieceLength: 64 << 10, V1Only: true})); err != nil {
 		t.Errorf("torrent not cached: %v", err)
 	}
 
@@ -172,4 +174,53 @@ func tail(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+func TestEmbeddedManifestRoundTrip(t *testing.T) {
+	st, m := keptRevision(t, sampleFiles(64<<10))
+	m.License.IDs = []string{"mit"}
+	meta, err := ForRevision(st, m, Options{PieceLength: 64 << 10, V1Only: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mi, err := metainfo.Load(bytes.NewReader(meta))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := EmbeddedManifest(mi.InfoBytes, time.Unix(0, 0), "bittorrent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := manifest.Parse(mustCanonical(t, m))
+	if len(got.Files) != len(want.Files) || got.Commit != want.Commit || got.License.IDs[0] != "mit" {
+		t.Fatalf("round trip lost data: %+v", got)
+	}
+	for i := range want.Files {
+		if got.Files[i] != want.Files[i] {
+			t.Errorf("%s: %+v != %+v", want.Files[i].Path, got.Files[i], want.Files[i])
+		}
+	}
+
+	// Two nodes seeding the same revision at different times build the same
+	// info hash: nothing time- or node-specific is in the info dict.
+	st2, m2 := keptRevision(t, sampleFiles(64<<10))
+	m2.License.IDs = []string{"mit"}
+	m2.FetchedAt = m2.FetchedAt.Add(48 * time.Hour)
+	meta2, err := ForRevision(st2, m2, Options{PieceLength: 64 << 10, V1Only: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mi2, _ := metainfo.Load(bytes.NewReader(meta2))
+	if mi.HashInfoBytes() != mi2.HashInfoBytes() {
+		t.Error("same revision, different info hash")
+	}
+}
+
+func mustCanonical(t *testing.T, m *manifest.Manifest) []byte {
+	t.Helper()
+	b, err := m.Canonical()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
