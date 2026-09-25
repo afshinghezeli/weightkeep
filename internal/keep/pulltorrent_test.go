@@ -3,6 +3,7 @@ package keep
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"testing"
@@ -80,6 +81,15 @@ func TestPullFromAnotherNodeWhileHubIsDown(t *testing.T) {
 	}
 	if _, err := manifest.Load(ctx, bStore, want, res.Manifest.Commit); err != nil {
 		t.Errorf("node B has no manifest: %v", err)
+	}
+
+	// A torrent that doesn't match the manifest it was expected to carry
+	// (the registry's record) is refused.
+	expect := clone(res.Manifest)
+	expect.Files[0].Size++
+	_, err = b.PullTorrent(cctx, TorrentPull{Client: leecher, Source: torrent.Source{MetaInfo: meta}, Peers: []net.Addr{seeder.Addr()}, Expect: expect})
+	if !errors.Is(err, ErrRegistryMismatch) {
+		t.Errorf("torrent contradicting the expected manifest: %v", err)
 	}
 
 	// A denylisted revision is refused as soon as the torrent's manifest

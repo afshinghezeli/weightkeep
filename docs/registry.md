@@ -37,6 +37,29 @@ offline until the timestamp expires (seven days), when another `sync` is needed.
 - metadata older than what it has already seen (a mirror rolling the registry back);
 - expired metadata (a mirror freezing it, for example to hide a new denylist entry).
 
+### What pull checks
+
+With a registry configured, `weightkeep pull` syncs it when the local copy is missing or expired, then:
+
+- refuses a revision whose files differ from the registry's record for that commit. A commit id
+  covers every file's git id, so upstream listing other content for it means the upstream, usually a
+  mirror, is not telling the truth;
+- warns when the registry lists a commit of the repo that the upstream no longer has. The repo's
+  history was rewritten, or it was deleted and someone else re-created it under the same name. The
+  pull still goes ahead, because the new content may be legitimate; check who publishes it now;
+- when neither the Hub nor any mirror can serve the revision, fetches it from the swarm using the
+  record's magnet link (with `--peer` for nodes the DHT doesn't find) and requires the torrent's
+  manifest to match the record. A branch name resolves to the registry's most recent record for the
+  repo, since the registry doesn't track branches. This fetches the whole revision; `--include` and
+  `--exclude` don't apply.
+
+```console
+$ WEIGHTKEEP_UPSTREAM=http://127.0.0.1:1 weightkeep pull prajjwal1/bert-tiny --peer 127.0.0.1:6991
+upstream can't serve prajjwal1/bert-tiny; trying the registry's record for prajjwal1/bert-tiny@6f75de8b60a9 from the swarm
+fetching the torrent's metadata and files from peers...
+kept prajjwal1/bert-tiny@6f75de8b60a9: 5 files, 18.0 MB (5 downloaded)
+```
+
 ### What the denylist does
 
 With a registry configured, weightkeep treats a denylisted revision as tier C:
@@ -194,7 +217,7 @@ jobs:
 
 - Every client downloads every record on `sync`. That is fine for thousands of revisions. Past that,
   the plan is TUF delegations per namespace, so clients fetch only the parts they look up.
-- The magnet link in a record is a hint. `weightkeep pull --torrent` verifies what it downloads against
-  the manifest inside the torrent, and that manifest must match the registry's record.
+- The magnet link in a record is a hint. What arrives is checked against the manifest inside the
+  torrent, and that manifest against the registry's record.
 - The registry says what a revision's files hashed to when it was checked. It says nothing about
   whether the model is safe to run.

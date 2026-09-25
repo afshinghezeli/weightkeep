@@ -203,3 +203,32 @@ func Digest(canonical []byte) string {
 
 // ErrNotFound means no manifest is kept for that revision.
 var ErrNotFound = errors.New("revision not kept")
+
+// Diff lists how got's files differ from want's: missing or extra paths, and
+// different sizes or hashes. A SHA-256 is compared only when both sides have
+// one (a regular file's is filled in after download); its git id, which
+// identifies the content just as well, always is.
+func Diff(want, got *Manifest) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, w := range want.Files {
+		seen[w.Path] = true
+		g, ok := got.File(w.Path)
+		switch {
+		case !ok:
+			out = append(out, w.Path+": missing")
+		case g.Size != w.Size:
+			out = append(out, fmt.Sprintf("%s: %d bytes, expected %d", w.Path, g.Size, w.Size))
+		case g.GitSHA1 != w.GitSHA1:
+			out = append(out, fmt.Sprintf("%s: git id %s, expected %s", w.Path, g.GitSHA1, w.GitSHA1))
+		case g.SHA256 != "" && w.SHA256 != "" && g.SHA256 != w.SHA256:
+			out = append(out, fmt.Sprintf("%s: sha256 %s, expected %s", w.Path, g.SHA256, w.SHA256))
+		}
+	}
+	for _, g := range got.Files {
+		if !seen[g.Path] {
+			out = append(out, g.Path+": not expected")
+		}
+	}
+	return out
+}

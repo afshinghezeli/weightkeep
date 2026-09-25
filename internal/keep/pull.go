@@ -24,14 +24,30 @@ type Keeper struct {
 	Hub     *hub.Client
 	Fetcher *fetch.Fetcher
 	// Mirrors are tried in order when Hub can't be reached or no longer has
-	// a repo or revision (see fallbackOK).
+	// a repo or revision (see CanFallBack).
 	Mirrors []*hub.Client
 	// Deny is the registry's denylist, nil if no registry is configured.
 	// Denylisted revisions are tier C: never seeded or fetched from the
 	// swarm, and not served to other machines.
 	Deny Denylist
-	Now  func() time.Time
+	// Registry is the community registry, nil if none is configured.
+	// Pull checks what upstream serves against its records.
+	Registry Registry
+	Now      func() time.Time
 }
+
+// Registry is what keep asks the community registry. Implementations
+// return ok=false when the registry has no record, not an error.
+type Registry interface {
+	// Record is the registry's manifest and magnet link for repo@commit.
+	Record(repo manifest.Repo, commit string) (m *manifest.Manifest, magnet string, ok bool, err error)
+	// Latest is the most recently added record for repo.
+	Latest(repo manifest.Repo) (m *manifest.Manifest, magnet string, ok bool, err error)
+}
+
+// ErrRegistryMismatch means upstream serves different files for a commit
+// than the community registry recorded.
+var ErrRegistryMismatch = errors.New("upstream contradicts the registry")
 
 // Denylist says whether a revision must not be shared, and why.
 type Denylist interface {
@@ -67,11 +83,12 @@ func (k *Keeper) fetcherFor(client *hub.Client) *fetch.Fetcher {
 	return &f
 }
 
-// fallbackOK says whether a failed lookup on the primary upstream should be
-// retried on the mirrors: the upstream is down, or the repo, revision or
-// file is gone. A gated repo or a rejected token is never retried
-// elsewhere: that would get around the author's access agreement.
-func fallbackOK(err error) bool {
+// CanFallBack reports whether a failed lookup on the primary upstream
+// should be retried elsewhere (mirrors, the swarm): the upstream is down,
+// or the repo, revision or file is gone. A gated repo or a rejected token
+// is never retried elsewhere: that would get around the author's access
+// agreement.
+func CanFallBack(err error) bool {
 	switch {
 	case errors.Is(err, hub.ErrGated), errors.Is(err, hub.ErrUnauthorized):
 		return false
@@ -88,7 +105,7 @@ func fallbackOK(err error) bool {
 // answer with the client that gave it.
 func (k *Keeper) repoInfo(ctx context.Context, repo hub.Repo, rev string) (*hub.RepoInfo, *hub.Client, error) {
 	info, err := k.Hub.RepoInfo(ctx, repo, rev)
-	if err == nil || !fallbackOK(err) {
+	if err == nil || !CanFallBack(err) {
 		return info, k.Hub, err
 	}
 	primaryErr := err
@@ -132,6 +149,9 @@ type PullResult struct {
 	// Offline is true when nothing was asked of the Hub (pinned commit
 	// already kept).
 	Offline bool
+	// Warnings are things the user should look at, such as a repo whose
+	// history no longer contains a commit the registry lists.
+	Warnings []string
 }
 
 // FileError collects per-file failures.
@@ -199,6 +219,9 @@ func (k *Keeper) Pull(ctx context.Context, req PullRequest) (*PullResult, error)
 		m, err = manifest.Load(ctx, k.Store, mrepo, info.SHA)
 		if errors.Is(err, manifest.ErrNotFound) {
 			m, err = k.buildManifest(ctx, client, req.Repo, info)
+			if err == nil {
+				err = k.checkRegistry(ctx, client, req.Repo, m, res)
+			}
 		}
 		if err != nil {
 			return nil, err
@@ -374,4 +397,39 @@ func compileGlobs(patterns []string) ([]*regexp.Regexp, error) {
 		out = append(out, re)
 	}
 	return out, nil
+}
+
+// checkRegistry compares a revision just listed upstream with the registry.
+// A different file list for the same commit is refused: git ids cover the
+// content, so it means the upstream (often a mirror) is lying. A commit the
+// registry lists for this repo that the upstream no longer has means its
+// history was rewritten, or the repo was deleted and re-created under the
+// same name; that is a warning, since the new content may be legitimate.
+func (k *Keeper) checkRegistry(ctx context.Context, client *hub.Client, repo hub.Repo, m *manifest.Manifest, res *PullResult) error {
+	if k.Registry == nil {
+		return nil
+	}
+	rec, _, ok, err := k.Registry.Record(m.Repo, m.Commit)
+	if err != nil {
+		return err
+	}
+	if ok {
+		if diff := manifest.Diff(rec, m); len(diff) > 0 {
+			return fmt.Errorf("%w: %s serves different files for %s@%s than the registry recorded:\n  %s",
+				ErrRegistryMismatch, client.Base(), m.Repo, m.Commit[:12], strings.Join(diff, "\n  "))
+		}
+		return nil
+	}
+	latest, _, ok, err := k.Registry.Latest(m.Repo)
+	if err != nil || !ok {
+		return err
+	}
+	if _, err := client.RepoInfo(ctx, repo, latest.Commit); errors.Is(err, hub.ErrRevisionNotFound) {
+		res.Warnings = append(res.Warnings, fmt.Sprintf(
+			"%s no longer has commit %s, which the registry lists for %s (fetched %s). "+
+				"Its history was rewritten, or the repo was deleted and re-created under the same name: "+
+				"check who publishes it now before trusting %s", client.Base(), latest.Commit[:12], m.Repo,
+			latest.FetchedAt.Format("2006-01-02"), m.Commit[:12]))
+	}
+	return nil
 }
