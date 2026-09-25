@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -80,6 +81,15 @@ func TestPullFromAnotherNodeWhileHubIsDown(t *testing.T) {
 	if _, err := manifest.Load(ctx, bStore, want, res.Manifest.Commit); err != nil {
 		t.Errorf("node B has no manifest: %v", err)
 	}
+
+	// A denylisted revision is refused as soon as the torrent's manifest
+	// arrives, before any file data.
+	b.Deny = denyRepo(tinyRep.ID)
+	_, err = b.PullTorrent(cctx, TorrentPull{Client: leecher, Source: torrent.Source{MetaInfo: meta}, Peers: []net.Addr{seeder.Addr()}})
+	if err == nil || !strings.Contains(err.Error(), "denylist") {
+		t.Errorf("denylisted torrent: %v", err)
+	}
+	b.Deny = nil
 
 	// Asking for a different repo than the torrent carries is refused.
 	other := manifest.Repo{Type: "model", ID: "acme/other"}

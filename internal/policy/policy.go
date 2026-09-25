@@ -43,7 +43,10 @@ type Input struct {
 	LicenseName string   // cardData.license_name, for license: other
 	Gated       string   // "", "auto", "manual", "true"
 	Private     bool
-	Denylisted  bool
+	// Denylisted is set when the revision is on the registry's denylist,
+	// with the entry's reason in DenyReason.
+	Denylisted bool
+	DenyReason string
 	// LicenseFile is the text of the repo's own licence file, nil if it has none.
 	LicenseFile     *string
 	LicenseFilePath string
@@ -82,7 +85,7 @@ func (d *Decision) because(t Tier, format string, args ...any) {
 func Evaluate(in Input) Decision {
 	d := Decision{Tier: A}
 	if in.Denylisted {
-		d.because(C, "on the denylist")
+		d.because(C, "on the registry's denylist: %s", in.DenyReason)
 	}
 	if in.Private {
 		d.because(C, "private repository")

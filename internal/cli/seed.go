@@ -66,6 +66,9 @@ of shared revisions are printed on stdout. Runs until interrupted.`,
 				return err
 			}
 			defer a.Close()
+			if err := a.useDenylist(cmd, !offline, true); err != nil {
+				return fmt.Errorf("%w\nseeding needs a current denylist; run `weightkeep registry sync`", err)
+			}
 
 			var cands []keep.SeedCandidate
 			opt := keep.SeedOptions{Allow: allow, NonCommercial: nonCommercial, Online: !offline}

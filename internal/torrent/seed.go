@@ -215,11 +215,19 @@ type Source struct {
 	Magnet   string
 }
 
+// FetchHooks let the caller shape a fetch once the torrent's embedded
+// manifest is known, before any file data is downloaded.
+type FetchHooks struct {
+	// Have reports files already kept; they are not downloaded. Torrents
+	// are piece-aligned, so a file can be skipped whole.
+	Have func(sha256 string) bool
+	// Accept can refuse the revision, for example one on the denylist.
+	Accept func(m *manifest.Manifest) error
+}
+
 // Fetch downloads a revision's torrent into dir and returns its info bytes.
-// Files whose SHA-256 (from the embedded manifest) satisfies have are not
-// downloaded: torrents are piece-aligned, so a file can be skipped whole.
 // The torrent's web seeds are used when the client allows them.
-func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.Addr, have func(sha256 string) bool) ([]byte, error) {
+func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.Addr, hooks FetchHooks) ([]byte, error) {
 	var spec *torrent.TorrentSpec
 	switch {
 	case src.MetaInfo != nil:
@@ -259,6 +267,11 @@ func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.
 	if err != nil {
 		return nil, err
 	}
+	if hooks.Accept != nil {
+		if err := hooks.Accept(m); err != nil {
+			return nil, err
+		}
+	}
 	shaOf := map[string]string{}
 	for _, f := range m.Files {
 		shaOf[f.Path] = f.SHA256
@@ -267,7 +280,7 @@ func (c *Client) Fetch(ctx context.Context, src Source, dir string, peers []net.
 	for _, f := range t.Files() {
 		p := strings.TrimPrefix(f.Path(), t.Name()+"/")
 		sum, ok := shaOf[p]
-		if !ok || f.Length() == 0 || have(sum) {
+		if !ok || f.Length() == 0 || (hooks.Have != nil && hooks.Have(sum)) {
 			f.SetPriority(torrent.PiecePriorityNone)
 			continue
 		}
@@ -323,6 +336,6 @@ func (l *lazyAligned) OpenTorrent(ctx context.Context, info *metainfo.Info, ih m
 
 // Download fetches a whole torrent into dir. Used by tests.
 func (c *Client) Download(ctx context.Context, metaInfo []byte, dir string, peers ...net.Addr) (*torrent.Torrent, error) {
-	_, err := c.Fetch(ctx, Source{MetaInfo: metaInfo}, dir, peers, func(string) bool { return false })
+	_, err := c.Fetch(ctx, Source{MetaInfo: metaInfo}, dir, peers, FetchHooks{})
 	return nil, err
 }
