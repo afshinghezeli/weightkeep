@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/afshinghezeli/weightkeep/compare/v0.2.0...v0.2.1) (2026-09-25)
+
+
+### Added
+
+* **manifest:** sign and verify revisions as OpenSSF Model Signing bundles ([#27](https://github.com/afshinghezeli/weightkeep/issues/27)) ([4b6f6a4](https://github.com/afshinghezeli/weightkeep/commit/4b6f6a4650c3438319a1913f87f6463e58eb948d))
+* **registry:** sign, check and sync a community registry ([#29](https://github.com/afshinghezeli/weightkeep/issues/29)) ([933b3c9](https://github.com/afshinghezeli/weightkeep/commit/933b3c9eee70359a0ba7f10b02b3fc2b4ca1e5f3))
+
 ## [0.2.0](https://github.com/afshinghezeli/weightkeep/compare/v0.1.0...v0.2.0) (2026-09-24)
 
 Sharing. Kept revisions can now be seeded over BitTorrent, where their licence allows it, and pulled
