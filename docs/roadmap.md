@@ -182,11 +182,19 @@ Design background: [`design.md`](design.md). Decisions: [`adr/`](adr/).
   implementation, model-signing 1.1.1: it verifies our bundle for real SmolLM2-135M weights and we verify
   one it made. The spec's Appendix A root digest is inconsistent with its file digests; its test vector
   is right, and we match the vector.
-- [ ] **M4.2 Registry repo and submission CI.** after M4.1, M3.1
+- [x] **M4.2 Registry repo and submission CI.** after M4.1, M3.1
   Separate `weightkeep-registry` repo: layout, submission checks (re-fetch Hub metadata, tier, gating,
   denylist), tuf-on-ci signing.
-- [ ] **M4.3 `registry sync`.** after M4.2
+  Done as the `weightkeep-registry` maintainer tool (`init`, `check`, `build`, `timestamp`) and
+  [registry.md](registry.md) with the registry repo's layout and CI workflows, instead of tuf-on-ci,
+  which needs Python and a signing event per change. Checked for real: a record for
+  prajjwal1/bert-tiny passed `check` against huggingface.co, and a record with one wrong hash failed.
+  Creating the public registry repo and its root keys is the maintainer's step.
+- [x] **M4.3 `registry sync`.** after M4.2
   go-tuf client with the root pinned in the binary.
+  Done as `weightkeep registry sync|show|record`, with the root configured (`registry.root`) until a
+  public registry exists to pin. Tests cover tampered records, rollback, expiry and foreign keys; a
+  real sync ran against a registry served by `python -m http.server`.
 - [ ] **M4.4 Denylist.** after M4.3
   Refuse to seed or serve-to-others anything on the signed denylist.
 - [ ] **M4.5 Namespace checks.** after M4.3

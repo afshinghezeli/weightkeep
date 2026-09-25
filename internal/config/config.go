@@ -35,6 +35,10 @@ type Config struct {
 	// Mirrors are tried in order when the upstream can't be reached or no
 	// longer has a repo: other weightkeep nodes, or public Hub mirrors.
 	Mirrors []string
+	// RegistryURL and RegistryRoot configure the community registry: its
+	// base URL, and the file holding its trusted root metadata.
+	RegistryURL  string
+	RegistryRoot string
 	// ServeAddr is the default listen address for `weightkeep serve`.
 	ServeAddr string
 
@@ -69,7 +73,11 @@ type fileConfig struct {
 	Home     string   `toml:"home"`
 	Upstream string   `toml:"upstream"`
 	Mirrors  []string `toml:"mirrors"`
-	Serve    struct {
+	Registry struct {
+		URL  string `toml:"url"`
+		Root string `toml:"root"`
+	} `toml:"registry"`
+	Serve struct {
 		Addr string `toml:"addr"`
 	} `toml:"serve"`
 }
@@ -111,6 +119,14 @@ func Load(env Env) (*Config, error) {
 	}
 
 	c.ServeAddr = firstNonEmpty(env.Getenv("WEIGHTKEEP_ADDR"), fc.Serve.Addr, DefaultServeAddr)
+
+	c.RegistryURL = strings.TrimRight(firstNonEmpty(env.Getenv("WEIGHTKEEP_REGISTRY_URL"), fc.Registry.URL), "/")
+	c.RegistryRoot = expandTilde(firstNonEmpty(env.Getenv("WEIGHTKEEP_REGISTRY_ROOT"), fc.Registry.Root), env.HomeDir)
+	if c.RegistryURL != "" {
+		if _, err := normalizeUpstream(c.RegistryURL); err != nil {
+			return nil, fmt.Errorf("registry: %w", err)
+		}
+	}
 
 	resolveHF(env, c)
 	if err := resolveToken(env, c); err != nil {
